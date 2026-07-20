@@ -26,10 +26,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+baselines = [
+    "xgboost>=1.7",
+]
 dev = [
     "pytest>=7.0",
     "black>=22.0",
     "jupyter>=1.0",
+    "xgboost>=1.7",
 ]
 
 [tool.setuptools.packages.find]
