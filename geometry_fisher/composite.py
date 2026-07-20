@@ -112,22 +112,44 @@ class CompositeLikelihoodModel:
         """Compute the composite negative log-likelihood + regularization."""
         W = self._theta_to_W(theta)
         nll = 0.0
+        n_samples = X.shape[0]
 
-        # Continuous part (Gaussian, variance fixed to 1)
+        # --------------------------
+        # Continuous part (Gaussian, variance = 1)
+        # --------------------------
         for j in self.continuous_idx_:
             mu = X @ W[j, :]
             resid = X[:, j] - mu
             nll += 0.5 * np.sum(resid ** 2)
 
-        # Ordinal part (probit)
+        # --------------------------
+        # Ordinal part (ordered probit)
+        # --------------------------
         for j in self.ordinal_idx_:
             mu = X @ W[j, :]
-            thresholds = self.thresholds_[j]
-            # For simplicity we handle the observed category via the thresholds
-            # (full implementation can be refined later)
-            for i in range(X.shape[0]):
-                # This is a simplified placeholder – we will improve it
-                nll += 0.5 * (X[i, j] - mu[i]) ** 2  # temporary
+            thresholds = self.thresholds_[j]   # shape (M-1,)
+
+            # Observed ordinal values (assumed to be integers 0, 1, 2, ..., M-1 or 1, 2, ..., M)
+            y_ord = X[:, j].astype(int)
+
+            # Handle both 0-based and 1-based coding
+            min_cat = y_ord.min()
+            if min_cat == 1:
+                y_ord = y_ord - 1   # convert to 0-based
+
+            M = len(thresholds) + 1
+
+            for i in range(n_samples):
+                m = y_ord[i]
+                # Lower and upper thresholds for category m
+                lower = -np.inf if m == 0 else thresholds[m - 1]
+                upper = np.inf if m == M - 1 else thresholds[m]
+
+                # Probability of falling into category m
+                # P(lower < Z <= upper) where Z ~ N(mu, 1)
+                p = norm.cdf(upper - mu[i]) - norm.cdf(lower - mu[i])
+                p = np.clip(p, 1e-10, 1.0)   # numerical safety
+                nll -= np.log(p)
 
         # L2 regularization
         nll += self.lambda_reg * np.sum(theta ** 2)
