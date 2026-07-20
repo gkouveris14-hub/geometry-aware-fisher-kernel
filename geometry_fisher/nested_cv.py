@@ -58,10 +58,12 @@ class NestedCVExperiment:
         mask_params: Optional[Dict[str, Any]] = None,
         feature_type: str = "linear",
         lambda_reg: float = 0.01,
-        ridge_gamma: float = 1e-4,
+        ridge_gamma: float = 1e-3,
+        shrink_j: bool = False,
         C: float = 1.0,
         outer_splits: int = 5,
         random_state: int = 42,
+        verbose: bool = True,
     ):
         self.mask = mask
         self.mask_object = mask_object
@@ -69,9 +71,11 @@ class NestedCVExperiment:
         self.feature_type = feature_type
         self.lambda_reg = lambda_reg
         self.ridge_gamma = ridge_gamma
+        self.shrink_j = shrink_j
         self.C = C
         self.outer_splits = outer_splits
         self.random_state = random_state
+        self.verbose = verbose
 
     def run(
         self,
@@ -93,7 +97,8 @@ class NestedCVExperiment:
         fold_results = []
 
         for fold_idx, (train_idx, test_idx) in enumerate(outer_cv.split(X, y)):
-            print(f"\n=== Outer Fold {fold_idx + 1}/{self.outer_splits} ===")
+            if self.verbose:
+                print(f"\n=== Outer Fold {fold_idx + 1}/{self.outer_splits} ===")
 
             X_train, X_test = X[train_idx], X[test_idx]
             y_train, y_test = y[train_idx], y[test_idx]
@@ -105,8 +110,10 @@ class NestedCVExperiment:
                 mask_params=self.mask_params,
                 lambda_reg=self.lambda_reg,
                 ridge_gamma=self.ridge_gamma,
+                shrink_j=self.shrink_j,
                 feature_type=self.feature_type,
                 C=self.C,
+                verbose=self.verbose,
             )
 
             # Fit only on the training fold
@@ -130,7 +137,11 @@ class NestedCVExperiment:
 
             n_params = clf.mask_.n_params if clf.mask_ is not None else -1
 
-            print(f"Fold {fold_idx + 1} — Acc: {acc:.3f} | Macro-F1: {f1:.3f} | AUC: {auc:.3f} | n_params: {n_params}")
+            if self.verbose:
+                print(
+                    f"Fold {fold_idx + 1} — Acc: {acc:.3f} | Macro-F1: {f1:.3f} | "
+                    f"AUC: {auc:.3f} | n_params: {n_params}"
+                )
 
             fold_results.append(FoldResult(
                 accuracy=acc,

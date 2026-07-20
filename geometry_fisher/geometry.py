@@ -1,5 +1,6 @@
 """
-Godambe geometry: sensitivity, variability, shrinkage, and whitening.
+Godambe geometry: sensitivity (H), variability (J), and whitening.
+Matches the thesis sandwich transform: G = H^{-1} J H^{-1}, A = psd_sqrt(G).
 """
 
 from __future__ import annotations
@@ -7,31 +8,28 @@ from __future__ import annotations
 import numpy as np
 from typing import Optional, Tuple
 from dataclasses import dataclass, field
-from scipy.linalg import sqrtm, inv, pinvh
+from numpy.linalg import inv
+
+
+def stable_symmetrize(M: np.ndarray) -> np.ndarray:
+    M = np.asarray(M, dtype=float)
+    return 0.5 * (M + M.T)
+
+
+def psd_sqrt(M: np.ndarray, eps: float = 1e-10) -> np.ndarray:
+    M = stable_symmetrize(M)
+    evals, evecs = np.linalg.eigh(M)
+    evals = np.clip(evals, eps, None)
+    return evecs @ np.diag(np.sqrt(evals)) @ evecs.T
 
 
 def ledoit_wolf_shrinkage(J: np.ndarray, n_samples: int) -> Tuple[np.ndarray, float]:
-    """
-    Simple Ledoit-Wolf style shrinkage of a covariance-like matrix toward
-    a scaled identity matrix.
-
-    Returns
-    -------
-    J_shrunk : np.ndarray
-    delta : float
-        Shrinkage intensity (0 = no shrinkage, 1 = full shrinkage).
-    """
     d = J.shape[0]
-    # Target: scaled identity
     mu = np.trace(J) / d
     target = mu * np.eye(d)
 
-    # Frobenius norms
     frobenius_J = np.sum(J ** 2)
     frobenius_diff = np.sum((J - target) ** 2)
-
-    # Simple estimate of shrinkage intensity (can be refined)
-    # This is a practical approximation suitable for our sample sizes
     delta = min(1.0, max(0.0, (frobenius_J / n_samples) / (frobenius_diff + 1e-12)))
 
     J_shrunk = (1 - delta) * J + delta * target
@@ -41,71 +39,51 @@ def ledoit_wolf_shrinkage(J: np.ndarray, n_samples: int) -> Tuple[np.ndarray, fl
 @dataclass
 class GodambeGeometry:
     """
-    Computes and stores the Godambe geometry for a fitted CompositeLikelihoodModel.
+    Godambe sandwich geometry for a fitted class-conditional model.
     """
 
-    # Inputs
-    gradients: np.ndarray          # shape (n_samples, n_params)
-    ridge_gamma: float = 1e-4      # ridge for H
+    gradients: np.ndarray
+    H: np.ndarray
+    ridge_gamma: float = 1e-3
+    shrink_j: bool = False
 
-    # Learned / computed
     H_: Optional[np.ndarray] = field(default=None, init=False)
     J_: Optional[np.ndarray] = field(default=None, init=False)
     J_shrunk_: Optional[np.ndarray] = field(default=None, init=False)
     delta_: Optional[float] = field(default=None, init=False)
     G_inv_: Optional[np.ndarray] = field(default=None, init=False)
-    A_: Optional[np.ndarray] = field(default=None, init=False)  # whitening matrix
+    A_: Optional[np.ndarray] = field(default=None, init=False)
     is_fitted_: bool = field(default=False, init=False)
 
     def fit(self) -> "GodambeGeometry":
-        """
-        Estimate H, J (with shrinkage), G^{-1} and the whitening matrix A.
-        """
         n_samples, d = self.gradients.shape
 
-        # Variability matrix J = empirical second-moment of gradients
-        self.J_ = (self.gradients.T @ self.gradients) / n_samples
+        self.H_ = stable_symmetrize(self.H)
+        self.J_ = stable_symmetrize((self.gradients.T @ self.gradients) / n_samples)
 
-        # Shrink J
-        self.J_shrunk_, self.delta_ = ledoit_wolf_shrinkage(self.J_, n_samples)
+        if self.shrink_j:
+            self.J_shrunk_, self.delta_ = ledoit_wolf_shrinkage(self.J_, n_samples)
+            J_use = self.J_shrunk_
+        else:
+            self.J_shrunk_ = self.J_.copy()
+            self.delta_ = 0.0
+            J_use = self.J_
 
-        # Sensitivity matrix H
-        # We use a simple approximation: H ≈ average outer product of gradients
-        # (more accurate analytic Hessian can be added later)
-        # For stability we also add a ridge.
-        self.H_ = self.J_.copy() + self.ridge_gamma * np.eye(d)
+        H_reg = self.H_ + self.ridge_gamma * np.eye(d)
+        H_inv = inv(H_reg)
 
-        # Inverse Godambe: G^{-1} = H^{-1} J H^{-1}
-        try:
-            H_inv = inv(self.H_)
-        except np.linalg.LinAlgError:
-            H_inv = pinvh(self.H_)
-
-        self.G_inv_ = H_inv @ self.J_shrunk_ @ H_inv
-
-        # Whitening matrix A such that A.T @ A ≈ G^{-1}
-        # We compute the symmetric square root of G_inv
-        # with a small eigenvalue floor for numerical safety
-        eigvals, eigvecs = np.linalg.eigh(self.G_inv_)
-        eigvals = np.clip(eigvals, 1e-10, None)          # floor
-        self.A_ = eigvecs @ np.diag(np.sqrt(eigvals)) @ eigvecs.T
+        self.G_inv_ = H_inv @ J_use @ H_inv
+        self.A_ = psd_sqrt(self.G_inv_)
 
         self.is_fitted_ = True
         return self
 
     def transform(self, gradients: np.ndarray) -> np.ndarray:
-        """
-        Apply the whitening transformation: g_tilde = A @ g
-        """
         if not self.is_fitted_:
             raise RuntimeError("GodambeGeometry must be fitted first.")
         return gradients @ self.A_.T
 
     def quadratic_form(self, gradients: np.ndarray) -> np.ndarray:
-        """
-        Compute the quadratic form q(x) = ||A g(x)||^2
-        for each observation.
-        """
         g_tilde = self.transform(gradients)
         return np.sum(g_tilde ** 2, axis=1)
 
