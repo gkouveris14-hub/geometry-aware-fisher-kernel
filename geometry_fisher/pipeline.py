@@ -134,17 +134,24 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
         self.clf_.fit(Phi, y)
 
         return self
-
-    def _select_features(self, features: FisherFeatures) -> np.ndarray:
-        if self.feature_type == "linear":
+    
+    def _select_features(self, features) -> np.ndarray:
+        if self.feature_type == "raw":
+            return features.raw
+        elif self.feature_type == "fisher_only":
+            return features.fisher_only
+        elif self.feature_type == "linear":
             return features.linear
         elif self.feature_type == "quadratic":
             return features.quadratic
         elif self.feature_type == "full":
             return features.full
         else:
-            raise ValueError(f"Unknown feature_type: {self.feature_type}")
-
+            raise ValueError(
+                f"Unknown feature_type: '{self.feature_type}'. "
+                f"Choose from: 'raw', 'fisher_only', 'linear', 'quadratic', 'full'"
+            )
+    
     def transform(self, X: np.ndarray) -> np.ndarray:
         grads_0 = self.model_0_.per_observation_gradient(X)
         grads_1 = self.model_1_.per_observation_gradient(X)
