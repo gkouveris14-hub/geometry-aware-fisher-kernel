@@ -18,14 +18,6 @@ from dataclasses import dataclass
 class StructuralMask:
     """
     Binary mask that defines which directed dependencies are allowed.
-
-    Attributes
-    ----------
-    matrix : np.ndarray
-        Binary matrix of shape (p, p). matrix[i, j] = 1 means
-        the edge j → i is allowed.
-    variable_names : list of str, optional
-        Names of the variables (for readability and exogeneity checks).
     """
 
     matrix: np.ndarray
@@ -37,37 +29,28 @@ class StructuralMask:
             raise ValueError("Mask must be a square matrix.")
         if not np.all(np.isin(self.matrix, [0, 1])):
             raise ValueError("Mask must contain only 0s and 1s.")
-        # No self-loops
         np.fill_diagonal(self.matrix, 0)
 
     @property
     def n_params(self) -> int:
-        """Number of free parameters (active edges)."""
         return int(self.matrix.sum())
 
     @property
     def p(self) -> int:
-        """Number of variables."""
         return self.matrix.shape[0]
 
     def apply(self, W: np.ndarray) -> np.ndarray:
-        """Apply the mask to a parameter matrix (element-wise)."""
         return W * self.matrix
 
     def enforce_exogeneity(self, exogenous: Sequence[str]) -> "StructuralMask":
-        """
-        Return a new mask where the given variables have no incoming edges.
-        """
         if self.variable_names is None:
             raise ValueError("variable_names must be set to use enforce_exogeneity.")
-
         new_matrix = self.matrix.copy()
         for var in exogenous:
             if var not in self.variable_names:
                 raise ValueError(f"Variable '{var}' not found in variable_names.")
             idx = self.variable_names.index(var)
-            new_matrix[idx, :] = 0  # no incoming edges
-
+            new_matrix[idx, :] = 0
         return StructuralMask(new_matrix, self.variable_names)
 
     @classmethod
@@ -78,20 +61,6 @@ class StructuralMask:
         allowed_edges: Optional[List[tuple]] = None,
         forbidden_edges: Optional[List[tuple]] = None,
     ) -> "StructuralMask":
-        """
-        Create a hand-specified mask from domain knowledge.
-
-        Parameters
-        ----------
-        variable_names : list of str
-            Ordered list of variable names.
-        exogenous : list of str, optional
-            Variables that should have no incoming edges (e.g. ["age", "sex"]).
-        allowed_edges : list of (target, source) tuples, optional
-            If provided, only these edges are allowed (plus any not forbidden).
-        forbidden_edges : list of (target, source) tuples, optional
-            Edges that must be zero.
-        """
         p = len(variable_names)
         matrix = np.ones((p, p), dtype=int)
         np.fill_diagonal(matrix, 0)
@@ -122,8 +91,59 @@ class StructuralMask:
         matrix: np.ndarray,
         variable_names: Optional[List[str]] = None,
     ) -> "StructuralMask":
-        """Create a mask directly from a binary numpy array."""
         return cls(matrix=matrix, variable_names=variable_names)
+
+    @classmethod
+    def from_stability_selection(
+        cls,
+        X: np.ndarray,
+        variable_names: List[str],
+        alpha: float = 0.05,
+        tau_stab: float = 0.6,
+        B: int = 50,
+        exogenous: Optional[Sequence[str]] = None,
+        random_state: int = 42,
+    ) -> "StructuralMask":
+        """
+        Build a mask using stability selection + PC algorithm.
+        """
+        from causallearn.search.ConstraintBased.PC import pc
+        from causallearn.utils.cit import fisherz
+
+        n_samples, p = X.shape
+        edge_freq = np.zeros((p, p))
+        rng = np.random.RandomState(random_state)
+
+        for b in range(B):
+            indices = rng.choice(n_samples, size=n_samples, replace=True)
+            X_b = X[indices]
+
+            cg = pc(X_b, alpha=alpha, indep_test=fisherz, verbose=False, show_progress=False)
+            graph = cg.G.graph
+
+            for i in range(p):
+                for j in range(p):
+                    if i == j:
+                        continue
+                    if graph[i, j] != 0 or graph[j, i] != 0:
+                        if graph[j, i] == 1 and graph[i, j] == -1:
+                            edge_freq[i, j] += 1.0
+                        elif graph[i, j] == 1 and graph[j, i] == -1:
+                            edge_freq[j, i] += 1.0
+                        else:
+                            edge_freq[i, j] += 0.5
+                            edge_freq[j, i] += 0.5
+
+        edge_freq /= B
+        matrix = (edge_freq >= tau_stab).astype(int)
+        np.fill_diagonal(matrix, 0)
+
+        mask = cls(matrix=matrix, variable_names=variable_names)
+
+        if exogenous is not None:
+            mask = mask.enforce_exogeneity(exogenous)
+
+        return mask
 
     def __repr__(self) -> str:
         return f"StructuralMask(p={self.p}, n_params={self.n_params})"
