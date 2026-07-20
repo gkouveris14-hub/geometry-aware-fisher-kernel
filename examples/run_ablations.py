@@ -1,65 +1,117 @@
 """
-Run the main ablation study (Variants A–E) on Heart Disease data.
+Run the full ablation study (Variants A–E) on Heart Disease data.
+
+Uses the same 531-sample thesis protocol as run_heart_disease.py and run_baselines.py.
 """
 
-import numpy as np
+from __future__ import annotations
+
+from pathlib import Path
+
+import pandas as pd
+
 from geometry_fisher.data import load_heart_disease
-from geometry_fisher.structure import StructuralMask
 from geometry_fisher.nested_cv import NestedCVExperiment
+from geometry_fisher.structure import StructuralMask
 
 DATA_PATH = r"C:\ΑΡΧΕΙΑ\UNIC\Thesis\heart_disease_uci.csv"
+OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
 
-X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
-    path=DATA_PATH,
-    binary_target=True,
-    only_cleveland=True,
-)
+VARIANTS = [
+    ("A", "raw", "Concatenated raw gradients"),
+    ("B", "fisher_only", "Whitened with J^{-1/2} only"),
+    ("C", "linear", "Full Godambe linear whitening"),
+    ("D", "quadratic", "Mahalanobis quadratic scores"),
+    ("E", "full", "Linear Godambe + quadratic scores"),
+]
 
-mask = StructuralMask.from_domain_knowledge(
-    variable_names=variable_names,
-    exogenous=["age", "sex"]
-)
 
-variants = ["raw", "fisher_only", "linear", "quadratic", "full"]
-
-print("=" * 70)
-print("ABLATION STUDY – Geometry-Aware Fisher Kernel")
-print("=" * 70)
-
-results = {}
-
-for variant in variants:
-    print(f"\n\n>>>>> Running variant: {variant.upper()} <<<<<\n")
-
-    experiment = NestedCVExperiment(
-        mask="hand",
-        mask_object=mask,
-        feature_type=variant,
-        lambda_reg=0.01,
-        ridge_gamma=1e-3,
-        outer_splits=5,
-        random_state=42,
+def main() -> pd.DataFrame:
+    X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
+        path=DATA_PATH,
+        binary_target=True,
+        only_cleveland=False,
     )
 
-    result = experiment.run(
-        X, y,
-        continuous_idx=continuous_idx,
-        ordinal_idx=ordinal_idx,
+    mask = StructuralMask.from_domain_knowledge(
         variable_names=variable_names,
+        exogenous=["age", "sex"],
     )
 
-    results[variant] = result
+    print("=" * 78)
+    print("ABLATION STUDY – Geometry-Aware Fisher Kernel (531 samples, 5-fold CV)")
+    print("=" * 78)
+    print(f"Hand-specified mask: {mask}")
 
-print("\n\n" + "=" * 70)
-print("ABLATION SUMMARY")
-print("=" * 70)
-print(f"{'Variant':<15} {'Accuracy':>12} {'Macro-F1':>12} {'AUC':>12}")
-print("-" * 70)
+    rows = []
 
-for variant in variants:
-    r = results[variant]
-    print(f"{variant:<15} {r.mean_accuracy:.3f}±{r.std_accuracy:.3f}  "
-          f"{r.mean_macro_f1:.3f}±{r.std_macro_f1:.3f}  "
-          f"{r.mean_auc:.3f}±{r.std_auc:.3f}")
+    for letter, variant, description in VARIANTS:
+        print(f"\n\n>>>>> Variant {letter}: {variant.upper()} — {description} <<<<<\n")
 
-print("=" * 70)
+        experiment = NestedCVExperiment(
+            mask="hand",
+            mask_object=mask,
+            feature_type=variant,
+            lambda_reg=0.01,
+            ridge_gamma=1e-3,
+            shrink_j=False,
+            outer_splits=5,
+            random_state=42,
+            verbose=True,
+        )
+
+        result = experiment.run(
+            X,
+            y,
+            continuous_idx=continuous_idx,
+            ordinal_idx=ordinal_idx,
+            variable_names=variable_names,
+        )
+
+        rows.append(
+            {
+                "variant": variant,
+                "letter": letter,
+                "description": description,
+                "accuracy_mean": result.mean_accuracy,
+                "accuracy_std": result.std_accuracy,
+                "macro_f1_mean": result.mean_macro_f1,
+                "macro_f1_std": result.std_macro_f1,
+                "auc_mean": result.mean_auc,
+                "auc_std": result.std_auc,
+            }
+        )
+
+    summary = pd.DataFrame(rows)
+
+    print("\n\n" + "=" * 78)
+    print("ABLATION SUMMARY")
+    print("=" * 78)
+    print(
+        f"{'Var':<5} {'Feature':<13} {'Accuracy':>14} {'Macro-F1':>14} {'AUC':>14}"
+    )
+    print("-" * 78)
+
+    for row in rows:
+        print(
+            f"{row['letter']:<5} {row['variant']:<13} "
+            f"{row['accuracy_mean']:.3f}±{row['accuracy_std']:.3f}   "
+            f"{row['macro_f1_mean']:.3f}±{row['macro_f1_std']:.3f}   "
+            f"{row['auc_mean']:.3f}±{row['auc_std']:.3f}"
+        )
+
+    print("=" * 78)
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    csv_path = OUTPUT_DIR / "ablation_summary.csv"
+    json_path = OUTPUT_DIR / "ablation_summary.json"
+
+    summary.to_csv(csv_path, index=False)
+    summary.to_json(json_path, orient="records", indent=2)
+
+    print(f"\nSaved summary to:\n  {csv_path}\n  {json_path}")
+    return summary
+
+
+if __name__ == "__main__":
+    main()

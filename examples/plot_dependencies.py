@@ -22,7 +22,7 @@ DATA_PATH = r"C:\ΑΡΧΕΙΑ\UNIC\Thesis\heart_disease_uci.csv"
 X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
     path=DATA_PATH,
     binary_target=True,
-    only_cleveland=True,
+    only_cleveland=False,
 )
 
 # -------------------------------------------------

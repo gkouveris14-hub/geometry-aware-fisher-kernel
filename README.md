@@ -46,7 +46,7 @@ from geometry_fisher.pipeline import GeometryFisherClassifier
 # Load data
 X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
     path="path/to/heart_disease_uci.csv",
-    only_cleveland=True,
+    only_cleveland=False,
 )
 
 # Define a hand-specified structural mask
