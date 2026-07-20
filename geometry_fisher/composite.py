@@ -157,10 +157,10 @@ class CompositeLikelihoodModel:
 
     def _objective(self, theta: np.ndarray, X: np.ndarray) -> float:
         return self._negative_log_likelihood(theta, X)
-
+   
     def per_observation_gradient(self, X: np.ndarray) -> np.ndarray:
         """
-        Compute per-observation gradients at theta_hat.
+        Compute analytic per-observation gradients at theta_hat.
 
         Returns
         -------
@@ -174,23 +174,63 @@ class CompositeLikelihoodModel:
         d = self.mask.n_params
         grads = np.zeros((n_samples, d))
 
-        # Numerical gradient for now (stable and simple).
-        # We can replace with analytic later if needed.
-        eps = 1e-5
-        theta = self.theta_hat_.copy()
+        W = self._theta_to_W(self.theta_hat_)
+        active = np.argwhere(self.mask.matrix == 1)  # list of (i, j) pairs
 
-        for i in range(n_samples):
-            x_i = X[i : i + 1, :]
-            base = self._negative_log_likelihood(theta, x_i)
+        # Pre-compute linear predictors for all variables
+        mu = X @ W.T   # shape (n_samples, p)
 
-            for k in range(d):
-                theta[k] += eps
-                plus = self._negative_log_likelihood(theta, x_i)
-                theta[k] -= eps
-                grads[i, k] = (plus - base) / eps
+        for obs in range(n_samples):
+            g_obs = np.zeros(d)
 
-        return grads
+            # ----- Continuous variables -----
+            for j in self.continuous_idx_:
+                resid = X[obs, j] - mu[obs, j]
+                # dNLL/dW[j, k] = -resid * X[obs, k]
+                for idx, (row, col) in enumerate(active):
+                    if row == j:
+                        g_obs[idx] += -resid * X[obs, col]
 
+            # ----- Ordinal variables (ordered probit) -----
+            for j in self.ordinal_idx_:
+                thresholds = self.thresholds_[j]
+                y_ord = int(X[obs, j])
+                if y_ord >= 1 and y_ord == X[:, j].min():  # handle 1-based
+                    y_ord = y_ord - 1
+                # safer conversion
+                y_val = int(X[obs, j])
+                min_cat = int(X[:, j].min())
+                if min_cat == 1:
+                    y_val -= 1
+
+                M = len(thresholds) + 1
+                m = y_val
+
+                lower = -np.inf if m == 0 else thresholds[m - 1]
+                upper = np.inf if m == M - 1 else thresholds[m]
+
+                # Score for mu: d/dmu log(Φ(u-μ) - Φ(l-μ)) = - (φ(u-μ) - φ(l-μ)) / p
+                phi_upper = norm.pdf(upper - mu[obs, j]) if np.isfinite(upper) else 0.0
+                phi_lower = norm.pdf(lower - mu[obs, j]) if np.isfinite(lower) else 0.0
+                p = norm.cdf(upper - mu[obs, j]) - norm.cdf(lower - mu[obs, j])
+                p = np.clip(p, 1e-12, 1.0)
+
+                d_nll_dmu = (phi_upper - phi_lower) / p   # note: NLL = -log p
+
+                # Chain rule: dNLL/dW[j, k] = dNLL/dmu * X[obs, k]
+                for idx, (row, col) in enumerate(active):
+                    if row == j:
+                        g_obs[idx] += d_nll_dmu * X[obs, col]
+
+            # Regularization gradient (2 * λ * θ) is the same for every observation
+            # We distribute it evenly or add it only once later. For per-observation
+            # features it is common to omit the regularizer from the score.
+            # Here we omit it so that the features reflect pure data contribution.
+
+            grads[obs] = g_obs
+
+        return grads 
+   
     def __repr__(self) -> str:
         status = "fitted" if self.is_fitted_ else "not fitted"
         return f"CompositeLikelihoodModel(n_params={self.mask.n_params}, {status})"
