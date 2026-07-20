@@ -118,8 +118,19 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
         features = build_features(grads_0, grads_1, self.geometry_0_, self.geometry_1_)
         Phi = self._select_features(features)
 
-        # Downstream classifier
-        self.clf_ = LogisticRegression(C=self.C, max_iter=self.max_iter, solver="lbfgs")
+        # Downstream classifier (with feature standardization)
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.pipeline import make_pipeline
+
+        self.clf_ = make_pipeline(
+            StandardScaler(),
+            LogisticRegression(
+                C=self.C,
+                max_iter=max(self.max_iter, 2000),
+                solver="lbfgs",
+                random_state=42,
+            )
+        )
         self.clf_.fit(Phi, y)
 
         return self
