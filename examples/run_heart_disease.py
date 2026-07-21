@@ -12,7 +12,6 @@ from config import DATA_PATH
 X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
     path=str(DATA_PATH),
     binary_target=True,
-    only_cleveland=False,
 )
 
 print("\nVariable names:", variable_names)

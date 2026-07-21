@@ -67,7 +67,6 @@ def main() -> None:
     X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
         path=str(DATA_PATH),
         binary_target=True,
-        only_cleveland=False,
     )
     mask = StructuralMask.from_domain_knowledge(
         variable_names=variable_names,

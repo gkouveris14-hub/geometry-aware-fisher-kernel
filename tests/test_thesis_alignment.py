@@ -19,12 +19,11 @@ def heart_data():
     return load_heart_disease(
         path=DATA_PATH,
         binary_target=True,
-        only_cleveland=False,
         verbose=False,
     )
 
 
-def test_dataset_size_matches_thesis(heart_data):
+def test_dataset_size_matches_thesis_protocol(heart_data):
     X, y, _, _, _ = heart_data
     assert X.shape == (531, 9)
     assert np.array_equal(np.bincount(y), [207, 324])

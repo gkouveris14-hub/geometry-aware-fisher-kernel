@@ -1,10 +1,7 @@
 """
 Reproduce thesis baseline comparisons on the Heart Disease dataset.
 
-Expected thesis summary (531 samples, 5-fold CV):
-- Logistic Regression: Acc ~0.780, AUC ~0.853
-- Random Forest:       Acc ~0.780, AUC ~0.847
-- XGBoost:             Acc ~0.787, AUC ~0.830
+Runs baseline comparison on the 531-sample thesis protocol (5-fold CV).
 """
 
 from geometry_fisher.baselines import run_baseline_cv, summaries_to_dataframe
@@ -15,7 +12,6 @@ from config import DATA_PATH
 X, y, variable_names, _, _ = load_heart_disease(
     path=str(DATA_PATH),
     binary_target=True,
-    only_cleveland=False,
 )
 
 result = run_baseline_cv(

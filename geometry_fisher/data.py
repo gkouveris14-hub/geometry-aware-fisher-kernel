@@ -18,7 +18,8 @@ def load_heart_disease(
     """
     Load Heart Disease data with the 9-variable thesis selection.
 
-    By default uses all centers (531 complete cases after dropna).
+    By default uses all centers (531 complete cases after dropna), matching
+    the MSc thesis notebook. Set only_cleveland=True for Cleveland only (303).
     """
     df = pd.read_csv(path)
 

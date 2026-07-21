@@ -28,7 +28,6 @@ def main() -> pd.DataFrame:
     X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
         path=str(DATA_PATH),
         binary_target=True,
-        only_cleveland=False,
     )
 
     mask = StructuralMask.from_domain_knowledge(
@@ -37,7 +36,7 @@ def main() -> pd.DataFrame:
     )
 
     print("=" * 78)
-    print("ABLATION STUDY – Geometry-Aware Fisher Kernel (531 samples, 5-fold CV)")
+    print(f"ABLATION STUDY – Geometry-Aware Fisher Kernel ({X.shape[0]} samples, 5-fold CV)")
     print("=" * 78)
     print(f"Hand-specified mask: {mask}")
 

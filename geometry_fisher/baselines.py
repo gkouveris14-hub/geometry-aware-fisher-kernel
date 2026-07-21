@@ -1,7 +1,7 @@
 """
 Baseline classifiers for comparison with the Geometry-Aware Fisher Kernel.
 
-Matches the thesis notebook protocol:
+Matches the thesis notebook protocol (531 samples, all centers):
 - 5-fold stratified CV (random_state=42)
 - Logistic Regression with StandardScaler
 - Random Forest and XGBoost on encoded mixed-type features

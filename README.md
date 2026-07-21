@@ -15,6 +15,17 @@ The published classifier (`feature_type="linear"`) performs:
 
 Compare against `feature_type="raw"` for the internal ablation (unwhitened gradients).
 
+## Dataset
+
+Experiments use the UCI Heart Disease CSV with **9 selected variables** (5 continuous + 4 ordinal).
+
+| Setting | Samples after cleaning | Class balance (0 / 1) |
+|---------|------------------------|------------------------|
+| **Default (all centers, thesis protocol)** | **531** | 207 / 324 |
+| Cleveland only (`only_cleveland=True`) | 303 | 164 / 139 |
+
+The raw CSV contains 920 rows across four hospitals. After selecting the 9 study variables and dropping rows with missing values, the **default loader keeps all centers (531 patients)**, matching `Last_hope.ipynb`.
+
 ## Installation
 
 ```bash
@@ -30,7 +41,7 @@ pip install -e ".[baselines]"   # optional: XGBoost baselines
 python examples/run_paper_experiments.py
 ```
 
-This runs 5-fold CV on the 531-sample Heart Disease protocol and writes `examples/outputs/paper_experiments.csv`.
+This runs 5-fold CV on the 531-sample thesis protocol and writes `examples/outputs/paper_experiments.csv`.
 
 ## Quick start
 

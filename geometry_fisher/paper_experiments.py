@@ -1,7 +1,7 @@
 """
 Paper-ready experiment table: baselines vs raw gradients vs Godambe (proposed).
 
-Protocol (531 Heart Disease samples, 5-fold stratified CV, random_state=42):
+Protocol (Heart Disease, 531 complete cases, all centers, 5-fold stratified CV, random_state=42):
 - External baselines: Logistic Regression, Random Forest, XGBoost
 - Internal ablation: unwhitened gradient features (raw)
 - Proposed method: Godambe-whitened gradient features (linear)
@@ -74,9 +74,9 @@ def run_paper_experiments(
     X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
         path=data_path,
         binary_target=True,
-        only_cleveland=False,
         verbose=verbose,
     )
+    n_samples = X.shape[0]
 
     mask = StructuralMask.from_domain_knowledge(
         variable_names=variable_names,
@@ -87,7 +87,7 @@ def run_paper_experiments(
 
     if verbose:
         print("=" * 78)
-        print("PAPER EXPERIMENTS — Heart Disease (531 samples, 5-fold CV)")
+        print(f"PAPER EXPERIMENTS — Heart Disease ({n_samples} samples, 5-fold CV)")
         print("=" * 78)
         print(f"Hand-specified mask: {mask}\n")
         print(">>> External baselines\n")
