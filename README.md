@@ -238,12 +238,14 @@ Here $g_k(x)$ are the raw score vectors (§4), $A_k$ are the Godambe whitening m
 Logistic regression on $\Phi(x)$:
 
 $$
-P(y=1 \mid x) = \sigma\bigl(w^\top \Phi(x) + b\bigr)
+P(y=1 \mid x) = \sigma\bigl(w^\top z + b\bigr), \qquad z = \operatorname{scale}\bigl(\Phi(x)\bigr)
 $$
 
-Features are optionally standardized before logistic regression (`scale_phi=True`, default).
+where $\operatorname{scale}(\cdot)$ applies feature-wise standardization (zero mean, unit variance) to $\Phi(x)$ **on the training fold**, then uses those training statistics at prediction time. This is the **default protocol** (`scale_phi=True`) and is used in all reported experiments: it stabilizes L-BFGS and puts the two class score blocks on comparable scales before the linear decision rule.
 
-**Code:** `pipeline.py` → `GeometryFisherClassifier.fit()` uses `sklearn.linear_model.LogisticRegression` inside a `StandardScaler` pipeline.
+Set `scale_phi=False` only for ablation; it is not the published evaluation setup.
+
+**Code:** `pipeline.py` → `GeometryFisherClassifier.fit()` wraps `StandardScaler` + `LogisticRegression` when `scale_phi=True`.
 
 ---
 
@@ -265,7 +267,8 @@ GeometryFisherClassifier.fit(X, y, ...)
 ├─ A₀, A₁ from sandwich G                        geometry.py   → psd_sqrt
 │
 ├─ Φ(x) = build_feature_matrix(...)              features.py
-└─ LogisticRegression.fit(Φ, y)                  pipeline.py
+├─ StandardScaler on Φ(x)                        pipeline.py  (scale_phi=True, default)
+└─ LogisticRegression.fit(z, y)                  pipeline.py
 ```
 
 ---
@@ -278,7 +281,8 @@ GeometryFisherClassifier.fit(X, y, ...)
 2. Estimate ordinal thresholds from **pooled training rows** (both classes).
 3. Fit class-0 and class-1 composite models under the same mask.
 4. Build Godambe geometry and features on the training fold.
-5. Fit logistic regression; evaluate on the held-out fold.
+5. **Standardize** $\Phi(x)$ on the training fold (`scale_phi=True`).
+6. Fit logistic regression; evaluate on the held-out fold.
 
 For Experiment 2, the mask is discovered **once on the full dataset** (`discover_mask_on="full_data"`) and reused in every fold.
 
