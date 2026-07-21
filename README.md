@@ -235,13 +235,14 @@ Here $g_k(x)$ are the raw score vectors (§4), $A_k$ are the Godambe whitening m
 
 ### 9. Classification
 
-Logistic regression on $\Phi(x)$:
+Features are standardized on the training fold, then passed to logistic regression:
 
 $$
-P(y=1 \mid x) = \sigma\bigl(w^\top z + b\bigr), \qquad z = \operatorname{scale}\bigl(\Phi(x)\bigr)
+P(y=1 \mid x) = \sigma\bigl(w^\top z + b\bigr), \qquad
+z_j = \frac{\Phi_j(x) - \hat\mu_j}{\hat\sigma_j}
 $$
 
-where $\operatorname{scale}(\cdot)$ applies feature-wise standardization (zero mean, unit variance) to $\Phi(x)$ **on the training fold**, then uses those training statistics at prediction time. This is the **default protocol** (`scale_phi=True`) and is used in all reported experiments: it stabilizes L-BFGS and puts the two class score blocks on comparable scales before the linear decision rule.
+Here $\Phi_j(x)$ is component $j$ of the feature vector from §8, and $\hat\mu_j$, $\hat\sigma_j$ are the **training-fold** mean and standard deviation of that component. The same training statistics are applied at test time. This is the **default protocol** (`scale_phi=True`) and is used in all reported experiments: it stabilizes L-BFGS and puts the two class score blocks on comparable scales before the linear decision rule.
 
 Set `scale_phi=False` only for ablation; it is not the published evaluation setup.
 
