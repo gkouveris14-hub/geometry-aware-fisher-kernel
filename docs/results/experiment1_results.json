@@ -1,0 +1,67 @@
+[
+  {
+    "Method":"Logistic Regression",
+    "Group":"baseline",
+    "Accuracy":"0.780 \u00b1 0.036",
+    "Macro-F1":"0.767 \u00b1 0.038",
+    "ROC-AUC":"0.853 \u00b1 0.030",
+    "Accuracy_mean":0.7795979545,
+    "Accuracy_std":0.0364153334,
+    "Macro-F1_mean":0.7665000118,
+    "Macro-F1_std":0.0383846528,
+    "ROC-AUC_mean":0.8530080742,
+    "ROC-AUC_std":0.0299811812
+  },
+  {
+    "Method":"Random Forest",
+    "Group":"baseline",
+    "Accuracy":"0.780 \u00b1 0.021",
+    "Macro-F1":"0.768 \u00b1 0.018",
+    "ROC-AUC":"0.847 \u00b1 0.027",
+    "Accuracy_mean":0.7796508552,
+    "Accuracy_std":0.0212668071,
+    "Macro-F1_mean":0.7680323415,
+    "Macro-F1_std":0.0182443953,
+    "ROC-AUC_mean":0.8469307687,
+    "ROC-AUC_std":0.0266208514
+  },
+  {
+    "Method":"XGBoost",
+    "Group":"baseline",
+    "Accuracy":"0.787 \u00b1 0.032",
+    "Macro-F1":"0.778 \u00b1 0.031",
+    "ROC-AUC":"0.830 \u00b1 0.027",
+    "Accuracy_mean":0.7872156586,
+    "Accuracy_std":0.0323000492,
+    "Macro-F1_mean":0.7776168536,
+    "Macro-F1_std":0.0308575311,
+    "ROC-AUC_mean":0.8303033983,
+    "ROC-AUC_std":0.0271845611
+  },
+  {
+    "Method":"Raw gradient features",
+    "Group":"comparison",
+    "Accuracy":"0.774 \u00b1 0.026",
+    "Macro-F1":"0.760 \u00b1 0.030",
+    "ROC-AUC":"0.812 \u00b1 0.038",
+    "Accuracy_mean":0.7739552107,
+    "Accuracy_std":0.0257353182,
+    "Macro-F1_mean":0.7596847908,
+    "Macro-F1_std":0.0303041026,
+    "ROC-AUC_mean":0.8115372052,
+    "ROC-AUC_std":0.0384288037
+  },
+  {
+    "Method":"Godambe whitening",
+    "Group":"method",
+    "Accuracy":"0.770 \u00b1 0.018",
+    "Macro-F1":"0.757 \u00b1 0.023",
+    "ROC-AUC":"0.811 \u00b1 0.041",
+    "Accuracy_mean":0.770216893,
+    "Accuracy_std":0.0178193703,
+    "Macro-F1_mean":0.756517168,
+    "Macro-F1_std":0.0228650878,
+    "ROC-AUC_mean":0.8110938756,
+    "ROC-AUC_std":0.0405370184
+  }
+]

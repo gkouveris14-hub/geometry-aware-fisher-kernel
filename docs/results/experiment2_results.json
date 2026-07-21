@@ -1,0 +1,30 @@
+[
+  {
+    "Method":"PC algorithm (single run)",
+    "Mask":"pc",
+    "Accuracy":"0.795 \u00b1 0.015",
+    "Macro-F1":"0.781 \u00b1 0.018",
+    "ROC-AUC":"0.849 \u00b1 0.021",
+    "Accuracy_mean":0.7947628284,
+    "Accuracy_std":0.0145254421,
+    "Macro-F1_mean":0.7813397992,
+    "Macro-F1_std":0.0183166675,
+    "ROC-AUC_mean":0.8490102352,
+    "ROC-AUC_std":0.0209351681,
+    "Mean_n_params":14.6
+  },
+  {
+    "Method":"PC stability selection",
+    "Mask":"stability",
+    "Accuracy":"0.782 \u00b1 0.023",
+    "Macro-F1":"0.765 \u00b1 0.026",
+    "ROC-AUC":"0.829 \u00b1 0.034",
+    "Accuracy_mean":0.7815200141,
+    "Accuracy_std":0.0228478325,
+    "Macro-F1_mean":0.7648230259,
+    "Macro-F1_std":0.0262476914,
+    "ROC-AUC_mean":0.8291520091,
+    "ROC-AUC_std":0.0337784766,
+    "Mean_n_params":12.4
+  }
+]

@@ -44,10 +44,13 @@ Thumbs.db
 
 # Project specific
 *.log
-results/
+/results/
 outputs/
 *.png
 !docs/figures/*.png
+!docs/results/
+!docs/results/*.csv
+!docs/results/*.json
 data/raw/
 data/processed/
 *.pkl

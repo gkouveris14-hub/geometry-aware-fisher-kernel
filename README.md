@@ -23,25 +23,44 @@ pip install -e .
 pip install -e ".[baselines]"   # optional: XGBoost
 ```
 
-## Reproduce thesis results (Experiment 1)
+## Results
 
-Hand-specified mask, 5-fold stratified CV (`random_state=42`):
+All tables use **531 samples**, **5-fold stratified CV**, and `random_state=42`. Committed copies live under `docs/results/`.
+
+### Experiment 1 — hand-specified mask
+
+| Method | Accuracy | Macro-F1 | ROC-AUC |
+|--------|----------|----------|---------|
+| Logistic Regression | 0.780 ± 0.036 | 0.767 ± 0.038 | 0.853 ± 0.030 |
+| Random Forest | 0.780 ± 0.021 | 0.768 ± 0.018 | 0.847 ± 0.027 |
+| XGBoost | 0.787 ± 0.032 | 0.778 ± 0.031 | 0.830 ± 0.027 |
+| Raw gradient features | 0.774 ± 0.026 | 0.760 ± 0.030 | 0.812 ± 0.038 |
+| **Godambe whitening** | **0.770 ± 0.018** | **0.757 ± 0.023** | **0.811 ± 0.041** |
+
+Source: [`docs/results/experiment1_results.csv`](docs/results/experiment1_results.csv)
+
+Reproduce:
 
 ```bash
 python examples/run_experiments.py
 ```
 
-Writes `examples/outputs/results.csv`.
+### Experiment 2 — data-driven masks (Godambe whitening)
 
-## Reproduce Experiment 2 (data-driven masks)
+| Method | Accuracy | Macro-F1 | ROC-AUC | Mean n_params |
+|--------|----------|----------|---------|---------------|
+| PC algorithm (single run) | 0.795 ± 0.015 | 0.781 ± 0.018 | 0.849 ± 0.021 | 14.6 |
+| PC stability selection | 0.782 ± 0.023 | 0.765 ± 0.026 | 0.829 ± 0.034 | 12.4 |
 
-Single PC run and PC stability selection, 5-fold CV:
+Source: [`docs/results/experiment2_results.csv`](docs/results/experiment2_results.csv)
+
+Reproduce:
 
 ```bash
 python examples/run_experiment2.py
 ```
 
-Writes `examples/outputs/experiment2_results.csv`. Stability selection uses `B=50` bootstrap resamples by default and is slower than the single PC run.
+Stability selection uses `B=50` bootstrap resamples by default and is slower than the single PC run.
 
 ## Cross-validation
 
@@ -50,6 +69,8 @@ In each fold:
 1. Estimate ordinal thresholds from pooled training data (shared by class 0 and class 1).
 2. Fit class-specific composite models under the same mask.
 3. Build features, fit logistic regression on the training fold, evaluate on the test fold.
+
+For Experiment 2, the structural mask is re-estimated on each training fold.
 
 ## Structural masks
 
@@ -93,11 +114,19 @@ mask = StructuralMask.from_stability_selection(X, variable_names, B=50, exogenou
 python examples/plot_dependencies.py
 ```
 
-Figures are saved under `docs/figures/` (structural mask, class-specific dependency matrices, and their difference).
+Figures are saved under `docs/figures/`.
 
-| Structural mask | Class dependencies | Difference |
+**Experiment 1 — hand mask and fitted class dependencies**
+
+| Hand mask | Class dependencies | Difference |
 |:---:|:---:|:---:|
-| ![Structural mask](docs/figures/mask.png) | ![Class dependencies](docs/figures/class_dependencies.png) | ![Difference heatmap](docs/figures/difference_heatmap.png) |
+| ![Hand mask](docs/figures/mask_hand.png) | ![Class dependencies](docs/figures/class_dependencies.png) | ![Difference heatmap](docs/figures/difference_heatmap.png) |
+
+**Experiment 2 — data-driven masks (full dataset, α=0.05, age/sex exogenous)**
+
+| PC algorithm | PC stability selection |
+|:---:|:---:|
+| ![PC mask](docs/figures/mask_pc.png) | ![Stability mask](docs/figures/mask_stability.png) |
 
 ## Example
 

@@ -1,7 +1,8 @@
 """
 Run Experiment 2: data-driven structural masks (PC and stability selection).
 
-Outputs are written to examples/outputs/experiment2_results.csv.
+Outputs are written to docs/results/experiment2_results.csv and
+examples/outputs/experiment2_results.csv.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from geometry_fisher.cross_validation import CrossValidationExperiment
 from geometry_fisher.data import load_heart_disease
 from geometry_fisher.experiments import save_results_table
 
-from config import DATA_PATH, OUTPUT_DIR
+from config import DATA_PATH, OUTPUT_DIR, RESULTS_DIR
 
 MASK_SPECS = [
     {
@@ -107,9 +108,15 @@ def main() -> pd.DataFrame:
 
 if __name__ == "__main__":
     table = main()
-    csv_path, json_path = save_results_table(
-        table,
-        OUTPUT_DIR,
-        stem="experiment2_results",
-    )
-    print(f"\nSaved:\n  {csv_path}\n  {json_path}")
+    saved_paths = []
+    for output_dir in (RESULTS_DIR, OUTPUT_DIR):
+        csv_path, json_path = save_results_table(
+            table,
+            output_dir,
+            stem="experiment2_results",
+        )
+        saved_paths.extend([csv_path, json_path])
+
+    print("\nSaved:")
+    for path in saved_paths:
+        print(f"  {path}")

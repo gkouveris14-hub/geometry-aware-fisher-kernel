@@ -82,8 +82,14 @@ def plot_difference_heatmap(
     return fig
 
 
-def plot_mask(mask: StructuralMask, figsize: Tuple[int, int] = (8, 7)):
+def plot_mask(
+    mask: StructuralMask,
+    figsize: Tuple[int, int] = (8, 7),
+    title: str | None = None,
+):
     names = mask.variable_names if mask.variable_names is not None else [f"X{i}" for i in range(mask.p)]
+    if title is None:
+        title = f"Structural Mask ({mask.n_params} free parameters)"
 
     fig, ax = plt.subplots(figsize=figsize)
     sns.heatmap(
@@ -97,7 +103,7 @@ def plot_mask(mask: StructuralMask, figsize: Tuple[int, int] = (8, 7)):
         linecolor="gray",
         ax=ax,
     )
-    ax.set_title(f"Structural Mask ({mask.n_params} free parameters)", fontsize=13)
+    ax.set_title(title, fontsize=13)
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
     plt.tight_layout()
     return fig

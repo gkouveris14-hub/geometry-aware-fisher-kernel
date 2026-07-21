@@ -1,12 +1,13 @@
 """
 Run the Heart Disease comparison table from the thesis (Experiment 1).
 
-Outputs are written to examples/outputs/results.csv.
+Outputs are written to docs/results/experiment1_results.csv and
+examples/outputs/results.csv.
 """
 
 from geometry_fisher.experiments import run_experiments, save_results_table
 
-from config import DATA_PATH, OUTPUT_DIR
+from config import DATA_PATH, OUTPUT_DIR, RESULTS_DIR
 
 table = run_experiments(
     str(DATA_PATH),
@@ -17,5 +18,15 @@ table = run_experiments(
     verbose=True,
 )
 
-csv_path, json_path = save_results_table(table, OUTPUT_DIR)
-print(f"\nSaved:\n  {csv_path}\n  {json_path}")
+csv_paths = []
+for output_dir in (RESULTS_DIR, OUTPUT_DIR):
+    csv_path, json_path = save_results_table(
+        table,
+        output_dir,
+        stem="experiment1_results" if output_dir == RESULTS_DIR else "results",
+    )
+    csv_paths.extend([csv_path, json_path])
+
+print("\nSaved:")
+for path in csv_paths:
+    print(f"  {path}")

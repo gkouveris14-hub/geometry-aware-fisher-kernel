@@ -1,7 +1,9 @@
 """
-Fit a model on Heart Disease data and plot the dependency structures.
+Fit a model on Heart Disease data and plot dependency structures.
 
-Saves figures to `docs/figures/`.
+Saves figures to `docs/figures/`:
+  - Hand-specified mask and fitted class dependencies (Experiment 1)
+  - PC and stability-selection masks on the full dataset (Experiment 2)
 """
 
 from __future__ import annotations
@@ -12,6 +14,8 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.preprocessing import StandardScaler
 
 from geometry_fisher.data import load_heart_disease
 from geometry_fisher.structure import StructuralMask
@@ -24,6 +28,21 @@ from geometry_fisher.visualization import (
 
 from config import DATA_PATH, FIGURES_DIR
 
+MASK_PARAMS = {
+    "alpha": 0.05,
+    "exogenous": ["age", "sex"],
+    "tau_stab": 0.6,
+    "B": 50,
+    "random_state": 42,
+}
+
+
+def _scale_continuous(X: np.ndarray, continuous_idx: np.ndarray) -> np.ndarray:
+    X_scaled = X.copy()
+    scaler = StandardScaler()
+    X_scaled[:, continuous_idx] = scaler.fit_transform(X[:, continuous_idx])
+    return X_scaled
+
 
 def main(*, show: bool = False) -> None:
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
@@ -32,18 +51,19 @@ def main(*, show: bool = False) -> None:
         path=str(DATA_PATH),
         binary_target=True,
     )
+    X_scaled = _scale_continuous(X, continuous_idx)
 
-    mask = StructuralMask.from_domain_knowledge(
+    hand_mask = StructuralMask.from_domain_knowledge(
         variable_names=variable_names,
-        exogenous=["age", "sex"],
+        exogenous=MASK_PARAMS["exogenous"],
     )
 
-    print(f"Mask: {mask}")
-    print("Fitting model...")
+    print(f"Hand mask: {hand_mask}")
+    print("Fitting Experiment 1 model...")
 
     clf = GeometryFisherClassifier(
         mask="hand",
-        mask_object=mask,
+        mask_object=hand_mask,
         feature_type="godambe",
         lambda_reg=0.01,
         ridge_gamma=1e-3,
@@ -58,10 +78,45 @@ def main(*, show: bool = False) -> None:
         variable_names=variable_names,
     )
 
+    print("Building Experiment 2 data-driven masks on the full dataset...")
+    pc_mask = StructuralMask.from_pc_algorithm(
+        X_scaled,
+        variable_names,
+        alpha=MASK_PARAMS["alpha"],
+        exogenous=MASK_PARAMS["exogenous"],
+    )
+    print(f"PC mask: {pc_mask}")
+
+    stability_mask = StructuralMask.from_stability_selection(
+        X_scaled,
+        variable_names,
+        alpha=MASK_PARAMS["alpha"],
+        tau_stab=MASK_PARAMS["tau_stab"],
+        B=MASK_PARAMS["B"],
+        exogenous=MASK_PARAMS["exogenous"],
+        random_state=MASK_PARAMS["random_state"],
+    )
+    print(f"Stability mask: {stability_mask}")
+
     print("Generating plots...")
 
     figures = {
-        "mask.png": plot_mask(mask),
+        "mask_hand.png": plot_mask(
+            hand_mask,
+            title=f"Hand-Specified Mask ({hand_mask.n_params} free parameters)",
+        ),
+        "mask_pc.png": plot_mask(
+            pc_mask,
+            title=f"PC Algorithm Mask ({pc_mask.n_params} free parameters)",
+        ),
+        "mask_stability.png": plot_mask(
+            stability_mask,
+            title=(
+                "PC Stability Selection Mask "
+                f"({stability_mask.n_params} free parameters, "
+                f"B={MASK_PARAMS['B']}, tau={MASK_PARAMS['tau_stab']})"
+            ),
+        ),
         "class_dependencies.png": plot_class_dependencies(
             clf.model_0_, clf.model_1_, variable_names
         ),
@@ -74,6 +129,10 @@ def main(*, show: bool = False) -> None:
         path = FIGURES_DIR / name
         fig.savefig(path, dpi=150, bbox_inches="tight")
         print(f"Saved: {path}")
+
+    legacy_mask = FIGURES_DIR / "mask.png"
+    figures["mask_hand.png"].savefig(legacy_mask, dpi=150, bbox_inches="tight")
+    print(f"Saved: {legacy_mask} (legacy alias)")
 
     if show:
         plt.show()
