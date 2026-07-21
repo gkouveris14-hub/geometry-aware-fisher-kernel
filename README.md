@@ -25,6 +25,9 @@ The framework supports a full ablation suite that isolates the contribution of:
 - Quadratic (Mahalanobis) scores
 - Combined linear + quadratic features
 
+**Published method:** use `feature_type="linear"` (Godambe-whitened gradients).  
+**Paper ablation:** compare against `feature_type="raw"` (unwhitened gradients only).
+
 ---
 
 ## Installation
@@ -127,6 +130,8 @@ geometry_fisher/
 └── visualization.py     # Heatmaps and dependency plots
 
 examples/
+├── run_paper_experiments.py   # Paper table: baselines + raw vs Godambe
+├── run_baselines.py
 ├── run_heart_disease.py
 ├── run_ablations.py
 └── plot_dependencies.py
