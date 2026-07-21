@@ -42,8 +42,13 @@ class CrossValidationExperiment:
     mask : str or StructuralMask
         ``hand``, ``pc``, ``stability``, or a ``StructuralMask`` instance.
     mask_params : dict
-        For ``pc``: ``alpha``, ``exogenous``.
-        For ``stability``: ``alpha``, ``tau_stab``, ``B``, ``exogenous``, ``random_state``.
+        For ``pc``: ``alpha``, ``exogenous``, ``forbidden_edges``.
+        For ``stability``: ``alpha``, ``tau_stab``, ``B``, ``exogenous``,
+        ``forbidden_edges``, ``random_state``.
+
+        ``exogenous`` blocks all incoming edges to the listed variables.
+        ``forbidden_edges`` is a list of ``(target, source)`` pairs removed
+        after structure discovery (domain-knowledge curation).
     feature_type : str
         ``godambe`` (thesis method) or ``raw`` (unwhitened gradients).
     outer_splits : int

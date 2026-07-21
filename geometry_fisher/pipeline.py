@@ -193,6 +193,7 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
                 else [f"X{i}" for i in range(X.shape[1])],
                 alpha=self.mask_params.get("alpha", 0.05),
                 exogenous=self.mask_params.get("exogenous", None),
+                forbidden_edges=self.mask_params.get("forbidden_edges", None),
             )
         if self.mask in ("stability", "data_driven"):
             return StructuralMask.from_stability_selection(
@@ -204,6 +205,7 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
                 tau_stab=self.mask_params.get("tau_stab", 0.6),
                 B=self.mask_params.get("B", 50),
                 exogenous=self.mask_params.get("exogenous", None),
+                forbidden_edges=self.mask_params.get("forbidden_edges", None),
                 random_state=self.mask_params.get("random_state", 42),
             )
         raise ValueError(

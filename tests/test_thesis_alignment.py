@@ -187,6 +187,59 @@ def test_pc_and_stability_masks_build_from_data(heart_data):
     assert stability_mask.n_params > 0
 
 
+def test_block_edges_curates_discovered_pc_mask(heart_data):
+    X, _, variable_names, continuous_idx, _ = heart_data
+    X_scaled = _scale_continuous(X, continuous_idx)
+
+    mask = StructuralMask.from_pc_algorithm(
+        X_scaled,
+        variable_names,
+        alpha=0.05,
+        exogenous=["age", "sex"],
+    )
+    active = np.argwhere(mask.matrix == 1)
+    assert active.size > 0
+
+    target, source = mask.variable_names[active[0][0]], mask.variable_names[active[0][1]]
+    curated = mask.block_edges([(target, source)])
+
+    assert curated.n_params == mask.n_params - 1
+    assert curated.matrix[active[0][0], active[0][1]] == 0
+
+
+def test_forbidden_edges_in_mask_params(heart_data):
+    from geometry_fisher.pipeline import GeometryFisherClassifier
+
+    X, y, variable_names, continuous_idx, ordinal_idx = heart_data
+    X_scaled = _scale_continuous(X, continuous_idx)
+
+    base_mask = StructuralMask.from_pc_algorithm(
+        X_scaled,
+        variable_names,
+        alpha=0.05,
+        exogenous=["age", "sex"],
+    )
+    active = np.argwhere(base_mask.matrix == 1)
+    target, source = (
+        variable_names[active[0][0]],
+        variable_names[active[0][1]],
+    )
+
+    clf = GeometryFisherClassifier(
+        mask="pc",
+        mask_params={
+            "alpha": 0.05,
+            "exogenous": ["age", "sex"],
+            "forbidden_edges": [(target, source)],
+        },
+        feature_type="raw",
+        verbose=False,
+    )
+    clf.fit(X, y, continuous_idx, ordinal_idx, variable_names)
+
+    assert clf.mask_.n_params == base_mask.n_params - 1
+
+
 def test_only_raw_and_godambe_feature_types_are_supported():
     from geometry_fisher.features import FEATURE_TYPES, normalize_feature_type
 

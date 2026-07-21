@@ -81,7 +81,12 @@ For Experiment 2, the structural mask is re-estimated on each training fold.
 ```python
 clf = GeometryFisherClassifier(
     mask="pc",
-    mask_params={"alpha": 0.05, "exogenous": ["age", "sex"]},
+    mask_params={
+        "alpha": 0.05,
+        "exogenous": ["age", "sex"],
+        # optional: remove impossible edges discovered by PC
+        "forbidden_edges": [("chol", "slope")],
+    },
     feature_type="godambe",
 )
 ```
@@ -96,17 +101,27 @@ clf = GeometryFisherClassifier(
         "tau_stab": 0.6,
         "B": 50,
         "exogenous": ["age", "sex"],
+        "forbidden_edges": [("chol", "slope")],
     },
     feature_type="godambe",
 )
 ```
 
-You can also build masks directly:
+You can also build and curate masks directly:
 
 ```python
-mask = StructuralMask.from_pc_algorithm(X, variable_names, alpha=0.05, exogenous=["age", "sex"])
-mask = StructuralMask.from_stability_selection(X, variable_names, B=50, exogenous=["age", "sex"])
+mask = StructuralMask.from_pc_algorithm(
+    X, variable_names, alpha=0.05, exogenous=["age", "sex"]
+)
+mask = mask.block_edges([("chol", "slope"), ("thalch", "fbs")])
+
+mask = StructuralMask.from_stability_selection(
+    X, variable_names, B=50, exogenous=["age", "sex"]
+).block_edges([("chol", "slope")])
 ```
+
+Each ``(target, source)`` tuple removes one directed edge: **source → target**.
+``exogenous`` is shorthand for blocking every incoming edge to a variable.
 
 ## Visualizations
 

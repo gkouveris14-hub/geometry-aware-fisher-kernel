@@ -76,6 +76,42 @@ class StructuralMask:
             new_matrix[idx, :] = 0
         return StructuralMask(new_matrix, self.variable_names)
 
+    def block_edges(self, forbidden_edges: Sequence[tuple]) -> "StructuralMask":
+        """
+        Remove directed edges from the mask.
+
+        Each entry is ``(target, source)``: source -> target is blocked.
+        Use this after PC or stability selection to enforce domain constraints
+        on a discovered structure.
+        """
+        if self.variable_names is None:
+            raise ValueError("variable_names must be set to block edges by name.")
+        if not forbidden_edges:
+            return self
+
+        new_matrix = self.matrix.copy()
+        name_to_idx = {name: i for i, name in enumerate(self.variable_names)}
+        for target, source in forbidden_edges:
+            if target not in name_to_idx:
+                raise ValueError(f"Variable '{target}' not found in variable_names.")
+            if source not in name_to_idx:
+                raise ValueError(f"Variable '{source}' not found in variable_names.")
+            i, j = name_to_idx[target], name_to_idx[source]
+            new_matrix[i, j] = 0
+        return StructuralMask(new_matrix, self.variable_names)
+
+    @staticmethod
+    def _apply_domain_constraints(
+        mask: "StructuralMask",
+        exogenous: Optional[Sequence[str]] = None,
+        forbidden_edges: Optional[Sequence[tuple]] = None,
+    ) -> "StructuralMask":
+        if exogenous is not None:
+            mask = mask.enforce_exogeneity(exogenous)
+        if forbidden_edges:
+            mask = mask.block_edges(forbidden_edges)
+        return mask
+
     @classmethod
     def from_domain_knowledge(
         cls,
@@ -103,10 +139,11 @@ class StructuralMask:
 
         mask = cls(matrix, variable_names)
 
-        if exogenous is not None:
-            mask = mask.enforce_exogeneity(exogenous)
-
-        return mask
+        return cls._apply_domain_constraints(
+            mask,
+            exogenous=exogenous,
+            forbidden_edges=None,
+        )
 
     @classmethod
     def from_array(
@@ -123,6 +160,7 @@ class StructuralMask:
         variable_names: List[str],
         alpha: float = 0.05,
         exogenous: Optional[Sequence[str]] = None,
+        forbidden_edges: Optional[Sequence[tuple]] = None,
     ) -> "StructuralMask":
         """Build a mask from one PC run on the training data (Experiment 2)."""
         from causallearn.search.ConstraintBased.PC import pc
@@ -139,10 +177,11 @@ class StructuralMask:
 
         mask = cls(matrix=matrix, variable_names=variable_names)
 
-        if exogenous is not None:
-            mask = mask.enforce_exogeneity(exogenous)
-
-        return mask
+        return cls._apply_domain_constraints(
+            mask,
+            exogenous=exogenous,
+            forbidden_edges=forbidden_edges,
+        )
 
     @classmethod
     def from_stability_selection(
@@ -153,6 +192,7 @@ class StructuralMask:
         tau_stab: float = 0.6,
         B: int = 50,
         exogenous: Optional[Sequence[str]] = None,
+        forbidden_edges: Optional[Sequence[tuple]] = None,
         random_state: int = 42,
     ) -> "StructuralMask":
         """Build a mask from PC stability selection (Experiment 2)."""
@@ -182,10 +222,11 @@ class StructuralMask:
 
         mask = cls(matrix=matrix, variable_names=variable_names)
 
-        if exogenous is not None:
-            mask = mask.enforce_exogeneity(exogenous)
-
-        return mask
+        return cls._apply_domain_constraints(
+            mask,
+            exogenous=exogenous,
+            forbidden_edges=forbidden_edges,
+        )
 
     def __repr__(self) -> str:
         return f"StructuralMask(p={self.p}, n_params={self.n_params})"
