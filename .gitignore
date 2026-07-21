@@ -47,6 +47,7 @@ Thumbs.db
 results/
 outputs/
 *.png
+!docs/figures/*.png
 data/raw/
 data/processed/
 *.pkl

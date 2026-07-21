@@ -1,8 +1,16 @@
 """
 Fit a model on Heart Disease data and plot the dependency structures.
+
+Saves figures to docs/figures/ for README preview and local inspection.
 """
 
-import numpy as np
+from __future__ import annotations
+
+import argparse
+
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from geometry_fisher.data import load_heart_disease
@@ -14,64 +22,73 @@ from geometry_fisher.visualization import (
     plot_mask,
 )
 
-from config import DATA_PATH
+from config import DATA_PATH, FIGURES_DIR
 
-X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
-    path=str(DATA_PATH),
-    binary_target=True,
-)
 
-# -------------------------------------------------
-# 2. Create a hand-specified mask
-# -------------------------------------------------
-mask = StructuralMask.from_domain_knowledge(
-    variable_names=variable_names,
-    exogenous=["age", "sex"]
-)
+def main(*, show: bool = False) -> None:
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
-print(f"Mask: {mask}")
+    X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
+        path=str(DATA_PATH),
+        binary_target=True,
+    )
 
-# -------------------------------------------------
-# 3. Fit the classifier (on the full data for visualization)
-# -------------------------------------------------
-print("Fitting model...")
+    mask = StructuralMask.from_domain_knowledge(
+        variable_names=variable_names,
+        exogenous=["age", "sex"],
+    )
 
-clf = GeometryFisherClassifier(
-    mask="hand",
-    mask_object=mask,
-    feature_type="linear",
-    lambda_reg=0.01,
-    ridge_gamma=1e-3,
-)
+    print(f"Mask: {mask}")
+    print("Fitting model...")
 
-clf.fit(
-    X, y,
-    continuous_idx=continuous_idx,
-    ordinal_idx=ordinal_idx,
-    variable_names=variable_names,
-)
+    clf = GeometryFisherClassifier(
+        mask="hand",
+        mask_object=mask,
+        feature_type="linear",
+        lambda_reg=0.01,
+        ridge_gamma=1e-3,
+        scale_phi=True,
+        verbose=False,
+    )
+    clf.fit(
+        X,
+        y,
+        continuous_idx=continuous_idx,
+        ordinal_idx=ordinal_idx,
+        variable_names=variable_names,
+    )
 
-print("Fitting done.")
+    print("Generating plots...")
 
-# -------------------------------------------------
-# 4. Create the plots
-# -------------------------------------------------
-print("Generating plots...")
+    figures = {
+        "mask.png": plot_mask(mask),
+        "class_dependencies.png": plot_class_dependencies(
+            clf.model_0_, clf.model_1_, variable_names
+        ),
+        "difference_heatmap.png": plot_difference_heatmap(
+            clf.model_0_, clf.model_1_, variable_names
+        ),
+    }
 
-# Plot the mask
-fig_mask = plot_mask(mask)
-fig_mask.savefig("mask.png", dpi=150, bbox_inches="tight")
-print("Saved: mask.png")
+    for name, fig in figures.items():
+        path = FIGURES_DIR / name
+        fig.savefig(path, dpi=150, bbox_inches="tight")
+        print(f"Saved: {path}")
 
-# Plot class-specific dependency matrices
-fig_deps = plot_class_dependencies(clf.model_0_, clf.model_1_, variable_names)
-fig_deps.savefig("class_dependencies.png", dpi=150, bbox_inches="tight")
-print("Saved: class_dependencies.png")
+    if show:
+        plt.show()
+    else:
+        plt.close("all")
 
-# Plot the difference
-fig_diff = plot_difference_heatmap(clf.model_0_, clf.model_1_, variable_names)
-fig_diff.savefig("difference_heatmap.png", dpi=150, bbox_inches="tight")
-print("Saved: difference_heatmap.png")
+    print("\nAll plots saved successfully.")
 
-print("\nAll plots saved successfully.")
-plt.show()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--show",
+        action="store_true",
+        help="Display figures after saving (requires a GUI backend).",
+    )
+    args = parser.parse_args()
+    main(show=args.show)

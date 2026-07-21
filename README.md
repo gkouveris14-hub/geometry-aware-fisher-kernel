@@ -45,6 +45,22 @@ python examples/run_paper_experiments.py
 
 This runs 5-fold CV on the 531-sample thesis protocol and writes `examples/outputs/paper_experiments.csv`.
 
+## Visualizations
+
+Preview figures from the bundled Heart Disease run (531 samples, hand-specified mask):
+
+| Structural mask | Class-specific dependencies | Class difference |
+|:---:|:---:|:---:|
+| ![Structural mask](docs/figures/mask.png) | ![Class dependencies](docs/figures/class_dependencies.png) | ![Difference heatmap](docs/figures/difference_heatmap.png) |
+
+Regenerate locally:
+
+```bash
+python examples/plot_dependencies.py
+```
+
+Figures are written to `docs/figures/`. Pass `--show` to display them in a window after saving.
+
 ## Quick start
 
 ```python
