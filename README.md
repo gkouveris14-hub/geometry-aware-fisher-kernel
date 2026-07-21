@@ -188,9 +188,3 @@ clf.fit(X, y, cont_idx, ord_idx, names)
 | `structure.py` | Hand-specified and data-driven masks |
 | `data.py` | Heart Disease loader |
 | `visualization.py` | Dependency heatmaps |
-
-## Tests
-
-```bash
-python -m pytest tests/ -v
-```
