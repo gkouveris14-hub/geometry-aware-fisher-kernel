@@ -240,6 +240,21 @@ def test_forbidden_edges_in_mask_params(heart_data):
     assert clf.mask_.n_params == base_mask.n_params - 1
 
 
+def test_structure_graph_plots_for_hand_mask(heart_data):
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from geometry_fisher.visualization import plot_structure_graph
+
+    _, _, variable_names, _, _ = heart_data
+    mask = StructuralMask.from_domain_knowledge(
+        variable_names=variable_names,
+        exogenous=["age", "sex"],
+    )
+    fig = plot_structure_graph(mask, exogenous=["age", "sex"])
+    assert fig is not None
+
+
 def test_only_raw_and_godambe_feature_types_are_supported():
     from geometry_fisher.features import FEATURE_TYPES, normalize_feature_type
 

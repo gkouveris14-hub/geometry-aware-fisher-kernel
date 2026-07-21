@@ -143,6 +143,18 @@ Figures are saved under `docs/figures/`.
 |:---:|:---:|
 | ![PC mask](docs/figures/mask_pc.png) | ![Stability mask](docs/figures/mask_stability.png) |
 
+Directed graphs show **source → target** arrows. Gold nodes are exogenous (`age`, `sex`). Dashed red arrows are edges removed after discovery by domain rules.
+
+| PC discovered vs curated | Stability discovered vs curated |
+|:---:|:---:|
+| ![PC curation](docs/figures/structure_pc_curation.png) | ![Stability curation](docs/figures/structure_stability_curation.png) |
+
+Final curated graphs:
+
+| PC structure | Stability structure |
+|:---:|:---:|
+| ![PC graph](docs/figures/structure_pc_graph.png) | ![Stability graph](docs/figures/structure_stability_graph.png) |
+
 ## Example
 
 ```python

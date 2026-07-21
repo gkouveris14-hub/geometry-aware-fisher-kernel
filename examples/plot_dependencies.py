@@ -24,6 +24,8 @@ from geometry_fisher.visualization import (
     plot_class_dependencies,
     plot_difference_heatmap,
     plot_mask,
+    plot_structure_curation,
+    plot_structure_graph,
 )
 
 from config import DATA_PATH, FIGURES_DIR
@@ -79,24 +81,26 @@ def main(*, show: bool = False) -> None:
     )
 
     print("Building Experiment 2 data-driven masks on the full dataset...")
-    pc_mask = StructuralMask.from_pc_algorithm(
+    pc_discovered = StructuralMask.from_pc_algorithm(
         X_scaled,
         variable_names,
         alpha=MASK_PARAMS["alpha"],
-        exogenous=MASK_PARAMS["exogenous"],
     )
-    print(f"PC mask: {pc_mask}")
+    pc_mask = pc_discovered.enforce_exogeneity(MASK_PARAMS["exogenous"])
+    print(f"PC discovered: {pc_discovered}")
+    print(f"PC curated: {pc_mask}")
 
-    stability_mask = StructuralMask.from_stability_selection(
+    stability_discovered = StructuralMask.from_stability_selection(
         X_scaled,
         variable_names,
         alpha=MASK_PARAMS["alpha"],
         tau_stab=MASK_PARAMS["tau_stab"],
         B=MASK_PARAMS["B"],
-        exogenous=MASK_PARAMS["exogenous"],
         random_state=MASK_PARAMS["random_state"],
     )
-    print(f"Stability mask: {stability_mask}")
+    stability_mask = stability_discovered.enforce_exogeneity(MASK_PARAMS["exogenous"])
+    print(f"Stability discovered: {stability_discovered}")
+    print(f"Stability curated: {stability_mask}")
 
     print("Generating plots...")
 
@@ -122,6 +126,36 @@ def main(*, show: bool = False) -> None:
         ),
         "difference_heatmap.png": plot_difference_heatmap(
             clf.model_0_, clf.model_1_, variable_names
+        ),
+        "structure_hand_graph.png": plot_structure_graph(
+            hand_mask,
+            title=f"Hand-Specified Structure ({hand_mask.n_params} edges)",
+            exogenous=MASK_PARAMS["exogenous"],
+        ),
+        "structure_pc_graph.png": plot_structure_graph(
+            pc_mask,
+            title=f"PC Structure After Curation ({pc_mask.n_params} edges)",
+            exogenous=MASK_PARAMS["exogenous"],
+        ),
+        "structure_pc_curation.png": plot_structure_curation(
+            pc_discovered,
+            pc_mask,
+            title="PC Discovery and Domain Curation (age/sex exogenous)",
+            exogenous=MASK_PARAMS["exogenous"],
+        ),
+        "structure_stability_graph.png": plot_structure_graph(
+            stability_mask,
+            title=(
+                "Stability Structure After Curation "
+                f"({stability_mask.n_params} edges)"
+            ),
+            exogenous=MASK_PARAMS["exogenous"],
+        ),
+        "structure_stability_curation.png": plot_structure_curation(
+            stability_discovered,
+            stability_mask,
+            title="Stability Selection and Domain Curation (age/sex exogenous)",
+            exogenous=MASK_PARAMS["exogenous"],
         ),
     }
 
