@@ -189,10 +189,10 @@ $$
 
 with default $\gamma = 10^{-3}$ (`ridge_gamma`).
 
-A matrix square root $A_k$ is obtained via eigendecomposition (clipped to PSD):
+A matrix square root $A_k = \mathcal{G}_k^{1/2}$ is obtained via eigendecomposition (clipped to PSD). The **whitened score** for class $k$ is the row vector:
 
 $$
-A_k = \mathcal{G}_k^{1/2}, \qquad \tilde g_k(x) = A_k \cdot g_k(x)^\top \quad \text{(implemented as } g_k(x) \cdot A_k^\top\text{)}
+\tilde g_k(x) = g_k(x) \cdot A_k^\top \in \mathbb{R}^d
 $$
 
 **Code:** `geometry.py` → `GodambeGeometry` (`fit()`, `transform()`), helpers `stable_symmetrize()`, `psd_sqrt()`.
@@ -201,9 +201,9 @@ $$
 
 ### 8. Feature map $\Phi(x)$
 
-Two feature modes:
+Each observation is mapped to a feature vector by stacking the class-conditional scores.
 
-**`raw`** — concatenate the class score vectors:
+**`raw`** — concatenate the unwhitened score vectors from §4:
 
 $$
 \Phi(x) =
@@ -213,15 +213,21 @@ g_1(x)
 \end{bmatrix}
 $$
 
-**`godambe`** — concatenate the Godambe-whitened scores:
+**`godambe`** — concatenate the whitened scores $\tilde g_0(x)$, $\tilde g_1(x)$ from §7:
 
 $$
 \Phi(x) =
 \begin{bmatrix}
-A_0 \cdot g_0(x) \\
-A_1 \cdot g_1(x)
+\tilde g_0(x) \\
+\tilde g_1(x)
+\end{bmatrix}
+= \begin{bmatrix}
+g_0(x) \cdot A_0^\top \\
+g_1(x) \cdot A_1^\top
 \end{bmatrix}
 $$
+
+Here $g_k(x)$ are the raw score vectors (§4), $A_k$ are the Godambe whitening matrices (§7), and $\tilde g_k(x) = g_k(x) \cdot A_k^\top$.
 
 **Code:** `features.py` → `build_feature_matrix()`; called from `pipeline.py` → `_build_phi()`.
 
