@@ -83,10 +83,6 @@ class GodambeGeometry:
             raise RuntimeError("GodambeGeometry must be fitted first.")
         return gradients @ self.A_.T
 
-    def quadratic_form(self, gradients: np.ndarray) -> np.ndarray:
-        g_tilde = self.transform(gradients)
-        return np.sum(g_tilde ** 2, axis=1)
-
     def __repr__(self) -> str:
         status = "fitted" if self.is_fitted_ else "not fitted"
         delta_str = f"{self.delta_:.3f}" if self.delta_ is not None else "None"

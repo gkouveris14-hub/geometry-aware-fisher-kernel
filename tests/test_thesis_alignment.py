@@ -130,9 +130,11 @@ def test_sandwich_whitening_is_psd(heart_data):
     assert np.min(eigvals) > -1e-8
 
 
-def test_linear_feature_type_alias_maps_to_godambe():
-    from geometry_fisher.features import normalize_feature_type
+def test_only_raw_and_godambe_feature_types_are_supported():
+    from geometry_fisher.features import FEATURE_TYPES, normalize_feature_type
 
-    with pytest.warns(FutureWarning, match="deprecated"):
-        assert normalize_feature_type("linear") == "godambe"
+    assert FEATURE_TYPES == ("raw", "godambe")
+    assert normalize_feature_type("raw") == "raw"
     assert normalize_feature_type("godambe") == "godambe"
+    with pytest.raises(ValueError, match="Unknown feature_type"):
+        normalize_feature_type("linear")

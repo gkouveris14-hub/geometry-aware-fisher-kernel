@@ -13,9 +13,7 @@ The published classifier (`feature_type="godambe"`) performs:
 3. Godambe sandwich whitening using the Hessian (H) and score covariance (J)
 4. StandardScaler on features + logistic regression
 
-Compare against `feature_type="raw"` for the internal ablation (unwhitened gradients).
-
-Legacy alias: `feature_type="linear"` is accepted but deprecated (maps to `"godambe"`).
+Compare against `feature_type="raw"` (unwhitened gradients, ablation baseline).
 
 ## Dataset
 

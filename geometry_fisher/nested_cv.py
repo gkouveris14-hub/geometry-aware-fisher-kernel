@@ -45,7 +45,7 @@ class NestedCVExperiment:
     mask_params : dict
         Parameters for data-driven mask (alpha, tau_stab, B, exogenous...).
     feature_type : str
-        "godambe" (proposed), "raw", "quadratic", or "full".
+        "godambe" (proposed) or "raw" (ablation).
     outer_splits : int
         Number of outer folds (default 5).
     random_state : int
