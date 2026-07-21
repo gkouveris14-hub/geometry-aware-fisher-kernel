@@ -40,20 +40,25 @@ PAPER_METHODS: List[PaperMethod] = [
 def _summary_row(
     name: str,
     category: str,
-    result,
+    mean_accuracy: float,
+    std_accuracy: float,
+    mean_macro_f1: float,
+    std_macro_f1: float,
+    mean_auc: float,
+    std_auc: float,
 ) -> dict:
     return {
         "Method": name,
         "Category": category,
-        "Accuracy": f"{result.mean_accuracy:.3f} ± {result.std_accuracy:.3f}",
-        "Macro-F1": f"{result.mean_macro_f1:.3f} ± {result.std_macro_f1:.3f}",
-        "ROC-AUC": f"{result.mean_auc:.3f} ± {result.std_auc:.3f}",
-        "Accuracy_mean": result.mean_accuracy,
-        "Accuracy_std": result.std_accuracy,
-        "Macro-F1_mean": result.mean_macro_f1,
-        "Macro-F1_std": result.std_macro_f1,
-        "ROC-AUC_mean": result.mean_auc,
-        "ROC-AUC_std": result.std_auc,
+        "Accuracy": f"{mean_accuracy:.3f} ± {std_accuracy:.3f}",
+        "Macro-F1": f"{mean_macro_f1:.3f} ± {std_macro_f1:.3f}",
+        "ROC-AUC": f"{mean_auc:.3f} ± {std_auc:.3f}",
+        "Accuracy_mean": mean_accuracy,
+        "Accuracy_std": std_accuracy,
+        "Macro-F1_mean": mean_macro_f1,
+        "Macro-F1_std": std_macro_f1,
+        "ROC-AUC_mean": mean_auc,
+        "ROC-AUC_std": std_auc,
     }
 
 
@@ -70,6 +75,7 @@ def run_paper_experiments(
         path=data_path,
         binary_target=True,
         only_cleveland=False,
+        verbose=verbose,
     )
 
     mask = StructuralMask.from_domain_knowledge(
@@ -105,16 +111,18 @@ def run_paper_experiments(
             raise KeyError(f"Missing baseline result for {method.name}")
 
         summary = baseline_by_name[method.name]
-
-        class _Wrap:
-            mean_accuracy = summary.mean_accuracy
-            std_accuracy = summary.std_accuracy
-            mean_macro_f1 = summary.mean_macro_f1
-            std_macro_f1 = summary.std_macro_f1
-            mean_auc = summary.mean_auc
-            std_auc = summary.std_auc
-
-        rows.append(_summary_row(method.name, method.category, _Wrap()))
+        rows.append(
+            _summary_row(
+                method.name,
+                method.category,
+                summary.mean_accuracy,
+                summary.std_accuracy,
+                summary.mean_macro_f1,
+                summary.std_macro_f1,
+                summary.mean_auc,
+                summary.std_auc,
+            )
+        )
 
     for method in PAPER_METHODS:
         if method.feature_type is None:
@@ -144,7 +152,18 @@ def run_paper_experiments(
             variable_names=variable_names,
         )
 
-        rows.append(_summary_row(method.name, method.category, result))
+        rows.append(
+            _summary_row(
+                method.name,
+                method.category,
+                result.mean_accuracy,
+                result.std_accuracy,
+                result.mean_macro_f1,
+                result.std_macro_f1,
+                result.mean_auc,
+                result.std_auc,
+            )
+        )
 
     table = pd.DataFrame(rows)
 

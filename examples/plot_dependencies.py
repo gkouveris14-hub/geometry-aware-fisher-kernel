@@ -14,13 +14,10 @@ from geometry_fisher.visualization import (
     plot_mask,
 )
 
-# -------------------------------------------------
-# 1. Load data
-# -------------------------------------------------
-DATA_PATH = r"C:\ΑΡΧΕΙΑ\UNIC\Thesis\heart_disease_uci.csv"
+from config import DATA_PATH
 
 X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
-    path=DATA_PATH,
+    path=str(DATA_PATH),
     binary_target=True,
     only_cleveland=False,
 )

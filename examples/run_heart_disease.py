@@ -7,13 +7,10 @@ from geometry_fisher.data import load_heart_disease
 from geometry_fisher.structure import StructuralMask
 from geometry_fisher.nested_cv import NestedCVExperiment
 
-# -------------------------------------------------
-# 1. Load data
-# -------------------------------------------------
-DATA_PATH = r"C:\ΑΡΧΕΙΑ\UNIC\Thesis\heart_disease_uci.csv"
+from config import DATA_PATH
 
 X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
-    path=DATA_PATH,
+    path=str(DATA_PATH),
     binary_target=True,
     only_cleveland=False,
 )

@@ -8,15 +8,12 @@ Generate the paper-ready comparison table:
 Results are saved to examples/outputs/paper_experiments.csv
 """
 
-from pathlib import Path
-
 from geometry_fisher.paper_experiments import run_paper_experiments, save_paper_table
 
-DATA_PATH = r"C:\ΑΡΧΕΙΑ\UNIC\Thesis\heart_disease_uci.csv"
-OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
+from config import DATA_PATH, OUTPUT_DIR
 
 table = run_paper_experiments(
-    DATA_PATH,
+    str(DATA_PATH),
     outer_splits=5,
     random_state=42,
     lambda_reg=0.01,

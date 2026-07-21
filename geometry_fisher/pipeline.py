@@ -15,13 +15,11 @@ from sklearn.pipeline import make_pipeline
 from .structure import StructuralMask
 from .composite import CompositeLikelihoodModel
 from .geometry import GodambeGeometry
-from .features import build_features
+from .features import build_feature_matrix, requires_geometry
 
 
 class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
-    """
-    Geometry-Aware Generalized Fisher Kernel classifier.
-    """
+    """Geometry-Aware Generalized Fisher Kernel classifier."""
 
     def __init__(
         self,
@@ -34,7 +32,8 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
         feature_type: str = "linear",
         C: float = 1.0,
         max_iter: int = 1000,
-        verbose: bool = True,
+        scale_phi: bool = True,
+        verbose: bool = False,
     ):
         self.mask = mask
         self.mask_object = mask_object
@@ -45,6 +44,7 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
         self.feature_type = feature_type
         self.C = C
         self.max_iter = max_iter
+        self.scale_phi = scale_phi
         self.verbose = verbose
 
         self.model_0_: Optional[CompositeLikelihoodModel] = None
@@ -123,40 +123,50 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
             shared_categories=shared_categories,
         )
 
-        grads_0_class = self.model_0_.per_observation_gradient(X0)
-        grads_1_class = self.model_1_.per_observation_gradient(X1)
-        H0 = self.model_0_.objective_hessian(X0)
-        H1 = self.model_1_.objective_hessian(X1)
+        if requires_geometry(self.feature_type):
+            grads_0_class = self.model_0_.per_observation_gradient(X0)
+            grads_1_class = self.model_1_.per_observation_gradient(X1)
+            H0 = self.model_0_.objective_hessian(X0)
+            H1 = self.model_1_.objective_hessian(X1)
 
-        self.geometry_0_ = GodambeGeometry(
-            gradients=grads_0_class,
-            H=H0,
-            ridge_gamma=self.ridge_gamma,
-            shrink_j=self.shrink_j,
-        ).fit()
-        self.geometry_1_ = GodambeGeometry(
-            gradients=grads_1_class,
-            H=H1,
-            ridge_gamma=self.ridge_gamma,
-            shrink_j=self.shrink_j,
-        ).fit()
+            self.geometry_0_ = GodambeGeometry(
+                gradients=grads_0_class,
+                H=H0,
+                ridge_gamma=self.ridge_gamma,
+                shrink_j=self.shrink_j,
+            ).fit()
+            self.geometry_1_ = GodambeGeometry(
+                gradients=grads_1_class,
+                H=H1,
+                ridge_gamma=self.ridge_gamma,
+                shrink_j=self.shrink_j,
+            ).fit()
+        else:
+            self.geometry_0_ = None
+            self.geometry_1_ = None
 
-        grads_0 = self.model_0_.per_observation_gradient(X)
-        grads_1 = self.model_1_.per_observation_gradient(X)
-        features = build_features(grads_0, grads_1, self.geometry_0_, self.geometry_1_)
-        Phi = self._select_features(features)
+        Phi = self._build_phi(X)
 
-        self.clf_ = make_pipeline(
-            StandardScaler(),
-            LogisticRegression(
-                C=self.C,
-                max_iter=max(self.max_iter, 2000),
-                solver="lbfgs",
-                random_state=42,
-            ),
+        lr = LogisticRegression(
+            C=self.C,
+            max_iter=max(self.max_iter, 2000),
+            solver="lbfgs",
+            random_state=42,
         )
+        self.clf_ = make_pipeline(StandardScaler(), lr) if self.scale_phi else lr
         self.clf_.fit(Phi, y)
         return self
+
+    def _build_phi(self, X: np.ndarray) -> np.ndarray:
+        grads_0 = self.model_0_.per_observation_gradient(X)
+        grads_1 = self.model_1_.per_observation_gradient(X)
+        return build_feature_matrix(
+            self.feature_type,
+            grads_0,
+            grads_1,
+            self.geometry_0_,
+            self.geometry_1_,
+        )
 
     def _resolve_mask(
         self,
@@ -183,30 +193,10 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
             )
         raise ValueError(f"Unknown mask type: {self.mask}")
 
-    def _select_features(self, features) -> np.ndarray:
-        if self.feature_type == "raw":
-            return features.raw
-        if self.feature_type == "fisher_only":
-            return features.fisher_only
-        if self.feature_type == "linear":
-            return features.linear
-        if self.feature_type == "quadratic":
-            return features.quadratic
-        if self.feature_type == "full":
-            return features.full
-        raise ValueError(
-            f"Unknown feature_type: '{self.feature_type}'. "
-            f"Choose from: 'raw', 'fisher_only', 'linear', 'quadratic', 'full'"
-        )
-
     def transform(self, X: np.ndarray) -> np.ndarray:
         X = np.asarray(X, dtype=float).copy()
         X[:, self.continuous_idx_] = self.scaler_.transform(X[:, self.continuous_idx_])
-
-        grads_0 = self.model_0_.per_observation_gradient(X)
-        grads_1 = self.model_1_.per_observation_gradient(X)
-        features = build_features(grads_0, grads_1, self.geometry_0_, self.geometry_1_)
-        return self._select_features(features)
+        return self._build_phi(X)
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         return self.clf_.predict(self.transform(X))

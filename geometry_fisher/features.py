@@ -1,37 +1,33 @@
-"""
-Feature construction for the Geometry-Aware Generalized Fisher Kernel.
-Supports the full ablation suite (A–E).
-"""
+"""Feature construction for the Geometry-Aware Fisher Kernel."""
 
 from __future__ import annotations
 
 import numpy as np
-from typing import Tuple
 from dataclasses import dataclass
-from scipy.linalg import sqrtm, inv, pinvh
 
 from .geometry import GodambeGeometry
+
+FEATURE_TYPES = ("raw", "fisher_only", "linear", "quadratic", "full")
+
+
+def requires_geometry(feature_type: str) -> bool:
+    return feature_type != "raw"
+
+
+def _safe_whiten(gradients: np.ndarray, matrix: np.ndarray) -> np.ndarray:
+    eigvals, eigvecs = np.linalg.eigh(matrix)
+    eigvals = np.clip(eigvals, 1e-10, None)
+    A = eigvecs @ np.diag(1.0 / np.sqrt(eigvals)) @ eigvecs.T
+    return gradients @ A.T
 
 
 @dataclass
 class FisherFeatures:
-    raw: np.ndarray            # Variant A: concat(g0, g1)
-    fisher_only: np.ndarray    # Variant B: concat(J^{-1/2} g0, J^{-1/2} g1)
-    linear: np.ndarray         # Variant C: concat(A0 g0, A1 g1)  (thesis)
-    quadratic: np.ndarray      # Variant D: [q0, q1, q_diff]
-    full: np.ndarray           # Variant E: linear + quadratic
-
-
-def _safe_whiten(gradients: np.ndarray, matrix: np.ndarray) -> np.ndarray:
-    """Apply whitening with a matrix (handles numerical issues)."""
-    try:
-        # Symmetric square root of the inverse
-        eigvals, eigvecs = np.linalg.eigh(matrix)
-        eigvals = np.clip(eigvals, 1e-10, None)
-        A = eigvecs @ np.diag(1.0 / np.sqrt(eigvals)) @ eigvecs.T
-        return gradients @ A.T
-    except Exception:
-        return gradients
+    raw: np.ndarray
+    fisher_only: np.ndarray
+    linear: np.ndarray
+    quadratic: np.ndarray
+    full: np.ndarray
 
 
 def build_features(
@@ -40,33 +36,23 @@ def build_features(
     geometry_0: GodambeGeometry,
     geometry_1: GodambeGeometry,
 ) -> FisherFeatures:
-    """
-    Build all ablation feature sets.
-    """
-    # --- Variant A: raw gradients ---
+    """Build all feature variants (used by exploratory ablation scripts)."""
     phi_raw = np.hstack([gradients_0, gradients_1])
 
-    # --- Variant B: Fisher-only (using J only) ---
-    # We use the shrunk J from the geometry objects
     J0 = geometry_0.J_shrunk_ if geometry_0.J_shrunk_ is not None else geometry_0.J_
     J1 = geometry_1.J_shrunk_ if geometry_1.J_shrunk_ is not None else geometry_1.J_
+    phi_fisher_only = np.hstack([
+        _safe_whiten(gradients_0, J0),
+        _safe_whiten(gradients_1, J1),
+    ])
 
-    g0_fisher = _safe_whiten(gradients_0, J0)
-    g1_fisher = _safe_whiten(gradients_1, J1)
-    phi_fisher_only = np.hstack([g0_fisher, g1_fisher])
-
-    # --- Variant C: full Godambe linear (thesis original) ---
     g_tilde_0 = geometry_0.transform(gradients_0)
     g_tilde_1 = geometry_1.transform(gradients_1)
     phi_linear = np.hstack([g_tilde_0, g_tilde_1])
 
-    # --- Variant D: quadratic forms ---
     q0 = geometry_0.quadratic_form(gradients_0)
     q1 = geometry_1.quadratic_form(gradients_1)
-    q_diff = q1 - q0
-    phi_quadratic = np.column_stack([q0, q1, q_diff])
-
-    # --- Variant E: full augmented ---
+    phi_quadratic = np.column_stack([q0, q1, q1 - q0])
     phi_full = np.hstack([phi_linear, phi_quadratic])
 
     return FisherFeatures(
@@ -76,3 +62,29 @@ def build_features(
         quadratic=phi_quadratic,
         full=phi_full,
     )
+
+
+def build_feature_matrix(
+    feature_type: str,
+    gradients_0: np.ndarray,
+    gradients_1: np.ndarray,
+    geometry_0: GodambeGeometry | None = None,
+    geometry_1: GodambeGeometry | None = None,
+) -> np.ndarray:
+    """Build the feature matrix for a single requested feature type."""
+    if feature_type not in FEATURE_TYPES:
+        raise ValueError(
+            f"Unknown feature_type: '{feature_type}'. "
+            f"Choose from: {', '.join(FEATURE_TYPES)}"
+        )
+
+    if feature_type == "raw":
+        return np.hstack([gradients_0, gradients_1])
+
+    if geometry_0 is None or geometry_1 is None:
+        raise ValueError(
+            f"Godambe geometry is required for feature_type='{feature_type}'."
+        )
+
+    features = build_features(gradients_0, gradients_1, geometry_0, geometry_1)
+    return getattr(features, feature_type)

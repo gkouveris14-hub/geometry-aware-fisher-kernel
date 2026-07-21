@@ -46,6 +46,7 @@ Thumbs.db
 *.log
 results/
 outputs/
+*.png
 data/raw/
 data/processed/
 *.pkl

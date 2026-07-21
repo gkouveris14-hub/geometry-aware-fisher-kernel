@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 from typing import Dict, Any, List, Optional, Union
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 
@@ -61,6 +61,7 @@ class NestedCVExperiment:
         ridge_gamma: float = 1e-3,
         shrink_j: bool = False,
         C: float = 1.0,
+        scale_phi: bool = True,
         outer_splits: int = 5,
         random_state: int = 42,
         verbose: bool = True,
@@ -73,6 +74,7 @@ class NestedCVExperiment:
         self.ridge_gamma = ridge_gamma
         self.shrink_j = shrink_j
         self.C = C
+        self.scale_phi = scale_phi
         self.outer_splits = outer_splits
         self.random_state = random_state
         self.verbose = verbose
@@ -113,6 +115,7 @@ class NestedCVExperiment:
                 shrink_j=self.shrink_j,
                 feature_type=self.feature_type,
                 C=self.C,
+                scale_phi=self.scale_phi,
                 verbose=self.verbose,
             )
 
@@ -165,12 +168,13 @@ class NestedCVExperiment:
             std_auc=float(np.std(aucs)) if aucs else np.nan,
         )
 
-        print("\n" + "=" * 50)
-        print("NESTED CV SUMMARY")
-        print("=" * 50)
-        print(f"Accuracy:  {result.mean_accuracy:.3f} ± {result.std_accuracy:.3f}")
-        print(f"Macro-F1:  {result.mean_macro_f1:.3f} ± {result.std_macro_f1:.3f}")
-        print(f"AUC:       {result.mean_auc:.3f} ± {result.std_auc:.3f}")
-        print("=" * 50)
+        if self.verbose:
+            print("\n" + "=" * 50)
+            print("NESTED CV SUMMARY")
+            print("=" * 50)
+            print(f"Accuracy:  {result.mean_accuracy:.3f} ± {result.std_accuracy:.3f}")
+            print(f"Macro-F1:  {result.mean_macro_f1:.3f} ± {result.std_macro_f1:.3f}")
+            print(f"AUC:       {result.mean_auc:.3f} ± {result.std_auc:.3f}")
+            print("=" * 50)
 
         return result

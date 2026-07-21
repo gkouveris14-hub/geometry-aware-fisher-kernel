@@ -10,7 +10,7 @@ Supports:
 from __future__ import annotations
 
 import numpy as np
-from typing import List, Optional, Sequence, Union
+from typing import List, Optional, Sequence
 from dataclasses import dataclass
 
 

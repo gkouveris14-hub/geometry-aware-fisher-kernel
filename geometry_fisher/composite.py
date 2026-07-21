@@ -1,10 +1,5 @@
 """
-Composite Likelihood Model – faithful to the original thesis notebook.
-- Shared thresholds
-- Mask applied in mean structure mu = (W * mask) @ x
-- Proper ordered probit with jax.lax.cond
-- theta parameterization with Optax + early stopping
-- Analytic Hessian for Godambe sensitivity matrix H
+Composite likelihood model for mixed continuous and ordinal variables.
 """
 
 from __future__ import annotations

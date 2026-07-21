@@ -10,10 +10,10 @@ Expected thesis summary (531 samples, 5-fold CV):
 from geometry_fisher.baselines import run_baseline_cv, summaries_to_dataframe
 from geometry_fisher.data import load_heart_disease
 
-DATA_PATH = r"C:\ΑΡΧΕΙΑ\UNIC\Thesis\heart_disease_uci.csv"
+from config import DATA_PATH
 
 X, y, variable_names, _, _ = load_heart_disease(
-    path=DATA_PATH,
+    path=str(DATA_PATH),
     binary_target=True,
     only_cleveland=False,
 )

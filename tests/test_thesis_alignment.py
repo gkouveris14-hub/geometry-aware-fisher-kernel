@@ -20,6 +20,7 @@ def heart_data():
         path=DATA_PATH,
         binary_target=True,
         only_cleveland=False,
+        verbose=False,
     )
 
 

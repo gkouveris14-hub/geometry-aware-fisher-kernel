@@ -1,7 +1,6 @@
 """
-Run the full ablation study (Variants A–E) on Heart Disease data.
-
-Uses the same 531-sample thesis protocol as run_heart_disease.py and run_baselines.py.
+Optional exploratory ablation (variants A–E). Not used in the paper table.
+See run_paper_experiments.py for the published comparison (raw vs Godambe).
 """
 
 from __future__ import annotations
@@ -14,8 +13,7 @@ from geometry_fisher.data import load_heart_disease
 from geometry_fisher.nested_cv import NestedCVExperiment
 from geometry_fisher.structure import StructuralMask
 
-DATA_PATH = r"C:\ΑΡΧΕΙΑ\UNIC\Thesis\heart_disease_uci.csv"
-OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
+from config import DATA_PATH, OUTPUT_DIR
 
 VARIANTS = [
     ("A", "raw", "Concatenated raw gradients"),
@@ -28,7 +26,7 @@ VARIANTS = [
 
 def main() -> pd.DataFrame:
     X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
-        path=DATA_PATH,
+        path=str(DATA_PATH),
         binary_target=True,
         only_cleveland=False,
     )
