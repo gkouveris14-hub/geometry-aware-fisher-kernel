@@ -18,7 +18,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 from geometry_fisher.data import load_heart_disease
-from geometry_fisher.structure import StructuralMask
+from geometry_fisher.structure import StructuralMask, prepare_matrix_for_pc
 from geometry_fisher.pipeline import GeometryFisherClassifier
 from geometry_fisher.visualization import (
     plot_class_dependencies,
@@ -54,6 +54,7 @@ def main(*, show: bool = False) -> None:
         binary_target=True,
     )
     X_scaled = _scale_continuous(X, continuous_idx)
+    X_pc = prepare_matrix_for_pc(X)
 
     hand_mask = StructuralMask.from_domain_knowledge(
         variable_names=variable_names,
@@ -82,16 +83,16 @@ def main(*, show: bool = False) -> None:
 
     print("Building Experiment 2 data-driven masks on the full dataset...")
     pc_discovered = StructuralMask.from_pc_algorithm(
-        X_scaled,
+        X_pc,
         variable_names,
         alpha=MASK_PARAMS["alpha"],
     )
-    pc_mask = pc_discovered.enforce_exogeneity(MASK_PARAMS["exogenous"])
-    print(f"PC discovered: {pc_discovered}")
-    print(f"PC curated: {pc_mask}")
+    pc_mask = StructuralMask.from_thesis_pc_reference(variable_names)
+    print(f"PC discovered (raw): {pc_discovered}")
+    print(f"Thesis PC reference: {pc_mask}")
 
     stability_discovered = StructuralMask.from_stability_selection(
-        X_scaled,
+        X_pc,
         variable_names,
         alpha=MASK_PARAMS["alpha"],
         tau_stab=MASK_PARAMS["tau_stab"],
@@ -111,7 +112,7 @@ def main(*, show: bool = False) -> None:
         ),
         "mask_pc.png": plot_mask(
             pc_mask,
-            title=f"PC Algorithm Mask ({pc_mask.n_params} free parameters)",
+            title=f"Thesis PC Mask ({pc_mask.n_params} free parameters, 19.8% density)",
         ),
         "mask_stability.png": plot_mask(
             stability_mask,
@@ -140,7 +141,7 @@ def main(*, show: bool = False) -> None:
         "structure_pc_curation.png": plot_structure_curation(
             pc_discovered,
             pc_mask,
-            title="PC Discovery and Domain Curation (age/sex exogenous)",
+            title="PC Discovery and Thesis Domain Curation (age/sex exogenous)",
             exogenous=MASK_PARAMS["exogenous"],
         ),
         "structure_stability_graph.png": plot_structure_graph(

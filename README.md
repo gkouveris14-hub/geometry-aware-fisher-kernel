@@ -49,10 +49,10 @@ python examples/run_experiments.py
 
 | Method | Accuracy | Macro-F1 | ROC-AUC | n_params |
 |--------|----------|----------|---------|----------|
-| PC algorithm (single run) | 0.782 ± 0.028 | 0.767 ± 0.031 | 0.846 ± 0.036 | 15 |
+| PC algorithm (single run) | 0.778 ± 0.028 | 0.764 ± 0.031 | 0.846 ± 0.035 | **16** |
 | PC stability selection | 0.793 ± 0.030 | 0.779 ± 0.034 | 0.849 ± 0.032 | 12 |
 
-The mask is discovered once on all 531 samples and held fixed across folds (thesis Experiment 2 protocol).
+The PC row uses the **fixed 16-edge thesis reference mask** (`StructuralMask.from_thesis_pc_reference()`), discovered on the full pooled sample and reused in every fold. Automatic PC discovery (`mask="pc"`) uses the same causal-learn encoding as `Last_hope-Copy1.ipynb` but can differ slightly in edge count on this dataset; the thesis figure is stored explicitly in code and in `docs/reference/thesis_pc_mask.dot`.
 
 Source: [`docs/results/experiment2_results.csv`](docs/results/experiment2_results.csv)
 
@@ -78,7 +78,14 @@ For Experiment 2, the structural mask is discovered **once on the full pooled sa
 
 **Hand-specified mask (Experiment 1):** set `mask="hand"` and pass a `StructuralMask` with domain constraints (age and sex exogenous).
 
-**Single PC run (Experiment 2):** set `mask="pc"`.
+**Single PC run (Experiment 2):** set `mask="pc"` for automatic discovery, or use the fixed thesis mask:
+
+```python
+mask = StructuralMask.from_thesis_pc_reference(variable_names)
+clf = GeometryFisherClassifier(mask="hand", mask_object=mask, feature_type="godambe")
+```
+
+Automatic PC discovery (thesis notebook encoding, all columns z-scored before PC):
 
 ```python
 clf = GeometryFisherClassifier(
@@ -86,7 +93,6 @@ clf = GeometryFisherClassifier(
     mask_params={
         "alpha": 0.05,
         "exogenous": ["age", "sex"],
-        # optional: remove impossible edges discovered by PC
         "forbidden_edges": [("chol", "slope")],
     },
     feature_type="godambe",

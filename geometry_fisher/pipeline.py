@@ -12,7 +12,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
 
-from .structure import StructuralMask
+from .structure import StructuralMask, prepare_matrix_for_pc
 from .composite import CompositeLikelihoodModel
 from .geometry import GodambeGeometry
 from .features import build_feature_matrix, normalize_feature_type, requires_geometry
@@ -186,15 +186,22 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
                 raise ValueError("When mask='hand', you must provide mask_object.")
             return self.mask_object
         if self.mask == "pc":
-            return StructuralMask.from_pc_algorithm(
-                X=X,
-                variable_names=variable_names
+            names = (
+                variable_names
                 if variable_names is not None
-                else [f"X{i}" for i in range(X.shape[1])],
+                else [f"X{i}" for i in range(X.shape[1])]
+            )
+            return StructuralMask.from_pc_algorithm(
+                X=prepare_matrix_for_pc(X),
+                variable_names=names,
                 alpha=self.mask_params.get("alpha", 0.05),
                 exogenous=self.mask_params.get("exogenous", None),
                 forbidden_edges=self.mask_params.get("forbidden_edges", None),
             )
+        if self.mask == "thesis_pc":
+            if variable_names is None:
+                raise ValueError("variable_names are required for mask='thesis_pc'.")
+            return StructuralMask.from_thesis_pc_reference(variable_names)
         if self.mask in ("stability", "data_driven"):
             return StructuralMask.from_stability_selection(
                 X=X,

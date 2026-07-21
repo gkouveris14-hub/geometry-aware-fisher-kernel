@@ -7,7 +7,7 @@ import pytest
 from pathlib import Path
 
 from geometry_fisher.data import load_heart_disease
-from geometry_fisher.structure import StructuralMask
+from geometry_fisher.structure import StructuralMask, prepare_matrix_for_pc
 from geometry_fisher.composite import CompositeLikelihoodModel
 from geometry_fisher.geometry import GodambeGeometry, stable_symmetrize
 
@@ -45,6 +45,13 @@ def test_hand_mask_has_56_parameters(heart_data):
         exogenous=["age", "sex"],
     )
     assert mask.n_params == 56
+
+
+def test_thesis_pc_reference_has_16_edges(heart_data):
+    _, _, variable_names, _, _ = heart_data
+    mask = StructuralMask.from_thesis_pc_reference(variable_names)
+    assert mask.n_params == 16
+    assert abs(mask.n_params / 81 - 0.198) < 0.001
 
 
 def test_godambe_uses_hessian_not_jacobian_covariance(heart_data):
@@ -165,10 +172,10 @@ def _scale_continuous(X, continuous_idx):
 
 def test_pc_and_stability_masks_build_from_data(heart_data):
     X, _, variable_names, continuous_idx, _ = heart_data
-    X_scaled = _scale_continuous(X, continuous_idx)
+    X_pc = prepare_matrix_for_pc(X)
 
     pc_mask = StructuralMask.from_pc_algorithm(
-        X_scaled,
+        X_pc,
         variable_names,
         alpha=0.05,
         exogenous=["age", "sex"],
@@ -176,7 +183,7 @@ def test_pc_and_stability_masks_build_from_data(heart_data):
     assert pc_mask.n_params > 0
 
     stability_mask = StructuralMask.from_stability_selection(
-        X_scaled,
+        X_pc,
         variable_names,
         alpha=0.05,
         tau_stab=0.6,
@@ -189,10 +196,10 @@ def test_pc_and_stability_masks_build_from_data(heart_data):
 
 def test_block_edges_curates_discovered_pc_mask(heart_data):
     X, _, variable_names, continuous_idx, _ = heart_data
-    X_scaled = _scale_continuous(X, continuous_idx)
+    X_pc = prepare_matrix_for_pc(X)
 
     mask = StructuralMask.from_pc_algorithm(
-        X_scaled,
+        X_pc,
         variable_names,
         alpha=0.05,
         exogenous=["age", "sex"],
@@ -211,10 +218,10 @@ def test_forbidden_edges_in_mask_params(heart_data):
     from geometry_fisher.pipeline import GeometryFisherClassifier
 
     X, y, variable_names, continuous_idx, ordinal_idx = heart_data
-    X_scaled = _scale_continuous(X, continuous_idx)
+    X_pc = prepare_matrix_for_pc(X)
 
     base_mask = StructuralMask.from_pc_algorithm(
-        X_scaled,
+        X_pc,
         variable_names,
         alpha=0.05,
         exogenous=["age", "sex"],

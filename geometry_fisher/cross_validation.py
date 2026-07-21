@@ -113,13 +113,18 @@ class CrossValidationExperiment:
                     raise ValueError(
                         "variable_names are required to discover a data-driven mask."
                     )
-                fixed_mask = discover_data_driven_mask(
-                    X,
-                    variable_names,
-                    continuous_idx,
-                    str(mask),
-                    mask_params,
-                )
+                if mask == "pc" and self.mask_params.get("use_thesis_reference", False):
+                    fixed_mask = StructuralMask.from_thesis_pc_reference(
+                        list(variable_names)
+                    )
+                else:
+                    fixed_mask = discover_data_driven_mask(
+                        X,
+                        variable_names,
+                        continuous_idx,
+                        str(mask),
+                        mask_params,
+                    )
                 mask = "hand"
                 mask_object = fixed_mask
                 mask_params = {}
