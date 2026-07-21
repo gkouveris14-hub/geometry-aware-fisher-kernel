@@ -94,10 +94,8 @@ geometry_fisher/
   visualization.py        Dependency heatmaps
 
 examples/
+  config.py
   run_paper_experiments.py
-  run_baselines.py
-  run_heart_disease.py
-  run_geometry_diagnostics.py
   plot_dependencies.py
 ```
 
