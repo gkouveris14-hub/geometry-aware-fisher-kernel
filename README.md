@@ -416,32 +416,50 @@ Source: [`docs/results/simulation_geometry_results.csv`](docs/results/simulation
 
 ## Choosing raw vs Godambe whitening
 
-| Use **`feature_type="godambe"`** when… | **`feature_type="raw"`** is enough when… |
-|----------------------------------------|------------------------------------------|
-| Sample size per class is **small** relative to mask dimension $d$ | You have **plenty of data** (Heart Disease–scale or larger) |
-| Composite / pseudo-likelihood — **$H \neq J$** (check below) | Features are **scaled** downstream (`scale_phi=True`, default) and CV shows no gain |
-| You want **geometry-correct** Fisher-kernel features for theory or kernels | You only need a **quick baseline** on the same composite scores |
-| Simulation-like regime: regularized linear readout, ill-conditioned raw scores | Raw vs Godambe **AUC difference < 0.02** on your CV |
-
-### Before applying on a new dataset
-
-Run the comparison script on your data (same mask and CV as the final experiment):
+After fitting the composite models and structural mask, run the **feature-type selection report** on your tabular data. It estimates the geometry from your dataset (not from a simulation draw) and compares raw vs Godambe features under the same cross-validation protocol you will use in the final experiment.
 
 ```bash
 python examples/compare_feature_types.py --mask hand
 python examples/compare_feature_types.py --mask pc
+python examples/compare_feature_types.py --mask stability
 ```
 
-Checklist:
+The report includes:
 
-1. **Problem fit** — Binary outcome; mixed continuous + ordinal columns; you can specify (or learn) which variables may affect which.
-2. **Mask** — Hand-specify domain edges, or discover with PC/stability and curate (`exogenous`, optional `forbidden_edges`).
-3. **Sample size** — Let $n_{\min} = \min_k n_k$ per class and $d$ = mask parameter count. If $n_{\min} \ll 2d$, prefer Godambe or a sparser mask.
-4. **$H$ vs $J$** — The script prints mean $\|H-J\|/\|H\|$ per class. Values **$\gg 0.5$** mean composite curvature and score variability diverge strongly; Godambe is theoretically preferred over Fisher-style shortcuts.
-5. **Empirical AUC** — Compare 5-fold CV AUC for `raw` vs `godambe`. If the gain is under 0.02, whitening is optional on that dataset.
-6. **Deployment default** — Keep `scale_phi=True` for numerical stability; use `scale_phi=False` only in ablations.
+| Check | What it tells you |
+|-------|-------------------|
+| $\|H-J\|/\|H\|$ per class | Composite curvature vs score variability — large values mean Fisher geometry is inappropriate |
+| $\kappa(H)$, $\kappa(G^{-1})$ | Numerical stability of the estimated whitening |
+| $n_{\min}/d$ | Smallest class size vs mask parameter count |
+| Paired CV (raw vs Godambe) | Empirical AUC and accuracy on **your** labels |
+| **Recommendation** | Suggested `feature_type` (`raw` or `godambe`) with reasons |
 
-The **structural mask** is usually the main modeling choice for applied users; whitening is the statistically principled metric when steps 3–5 point toward geometry correction.
+Decision logic (implemented in `geometry_fisher/diagnostics.py`):
+
+1. **Clear CV winner** ($\Delta\text{AUC} \geq 0.02$ or same for accuracy) → use the better feature type.
+2. **CV tie** and $n_{\min}/d < 2$ → prefer **Godambe** (geometry hard to estimate).
+3. **CV tie** and mean $\|H-J\|/\|H\| \geq 0.5$ → prefer **Godambe** (composite-likelihood regime).
+4. **CV tie** with plenty of data and moderate $H$–$J$ gap → **raw** is sufficient.
+
+Programmatic use:
+
+```python
+from geometry_fisher.diagnostics import evaluate_feature_type_choice
+
+report = evaluate_feature_type_choice(
+    X, y, continuous_idx, ordinal_idx, variable_names,
+    mask="hand",
+    mask_object=mask,
+)
+feature_type = report.recommendation  # 'raw' or 'godambe'
+```
+
+| Use **`feature_type="godambe"`** when… | **`feature_type="raw"`** is enough when… |
+|----------------------------------------|------------------------------------------|
+| The report recommends `godambe` | The report recommends `raw` |
+| $n_{\min}/d$ is small | $n_{\min}/d \gtrsim 2$ and CV shows no gain |
+| Mean $\|H-J\|/\|H\|$ is large | Moderate geometry mismatch and CV tie |
+| Godambe wins paired CV | Raw wins or ties paired CV with ample data |
 
 ---
 
@@ -550,6 +568,7 @@ Directed graphs: **source → target** arrows. Gold nodes = exogenous (`age`, `s
 | `pipeline.py` | `GeometryFisherClassifier` — full fit/predict pipeline |
 | `cross_validation.py` | Stratified k-fold evaluation |
 | `simulation.py` | Synthetic score-geometry study (Exp 3) |
+| `diagnostics.py` | Post-fit tests to choose raw vs Godambe features |
 | `experiments.py` | Baseline comparison tables |
 | `baselines.py` | Logistic regression, Random Forest, XGBoost |
 | `data.py` | Heart Disease data loader |
