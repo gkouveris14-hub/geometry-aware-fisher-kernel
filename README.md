@@ -394,13 +394,13 @@ Score-level simulation in `geometry_fisher/simulation.py` that isolates the whit
 
 The label depends on a **sparse** linear functional of $\tilde g$ but on a **dense** functional of $g$. Under regularization, Godambe features therefore need fewer samples to reach the same AUC.
 
-| $n$ | Raw AUC | Godambe AUC |
-|-----|---------|-------------|
-| 60 | 0.836 ± 0.083 | **0.930 ± 0.066** |
-| 100 | 0.891 ± 0.064 | **0.956 ± 0.033** |
-| 160 | 0.902 ± 0.050 | **0.961 ± 0.028** |
-| 240 | 0.927 ± 0.035 | **0.969 ± 0.020** |
-| 360 | 0.952 ± 0.021 | **0.978 ± 0.020** |
+| $n$ | Raw Acc | Godambe Acc | Raw AUC | Godambe AUC |
+|-----|---------|-------------|---------|-------------|
+| 60 | 0.733 ± 0.081 | **0.840 ± 0.086** | 0.836 ± 0.083 | **0.930 ± 0.066** |
+| 100 | 0.795 ± 0.083 | **0.881 ± 0.044** | 0.891 ± 0.064 | **0.956 ± 0.033** |
+| 160 | 0.807 ± 0.068 | **0.890 ± 0.047** | 0.902 ± 0.050 | **0.961 ± 0.028** |
+| 240 | 0.838 ± 0.045 | **0.900 ± 0.036** | 0.927 ± 0.035 | **0.969 ± 0.020** |
+| 360 | 0.876 ± 0.041 | **0.917 ± 0.037** | 0.952 ± 0.021 | **0.978 ± 0.020** |
 
 Mean $\|H-J\|/\|H\| \approx 1.0$ across replicates (Fisher equality would give $\approx 0$).
 

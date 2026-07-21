@@ -19,14 +19,16 @@ RESULTS_DIR = Path(__file__).resolve().parents[1] / "docs" / "results"
 
 def _format_sweep(sweep: dict) -> str:
     lines = [
-        "Experiment 3 — score geometry (raw vs Godambe, AUC)",
+        "Experiment 3 — score geometry (raw vs Godambe)",
         "-" * 50,
     ]
     for n in sorted(sweep):
         s = sweep[n]
         lines.append(
-            f"n={n:3d}  raw {s['raw_auc']['mean']:.3f} ± {s['raw_auc']['std']:.3f}   "
-            f"godambe {s['godambe_auc']['mean']:.3f} ± {s['godambe_auc']['std']:.3f}"
+            f"n={n:3d}  raw acc {s['raw_accuracy']['mean']:.3f} ± {s['raw_accuracy']['std']:.3f}   "
+            f"godambe acc {s['godambe_accuracy']['mean']:.3f} ± {s['godambe_accuracy']['std']:.3f}   "
+            f"raw AUC {s['raw_auc']['mean']:.3f} ± {s['raw_auc']['std']:.3f}   "
+            f"godambe AUC {s['godambe_auc']['mean']:.3f} ± {s['godambe_auc']['std']:.3f}"
         )
     dhj = sweep[sorted(sweep)[-1]]["delta_hj"]
     lines.append(f"mean ||H-J||/||H|| at largest n: {dhj['mean']:.3f} ± {dhj['std']:.3f}")
