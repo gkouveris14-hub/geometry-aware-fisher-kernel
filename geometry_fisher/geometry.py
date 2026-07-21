@@ -1,6 +1,9 @@
 """
 Godambe geometry: sensitivity (H), variability (J), and whitening.
-Matches the thesis sandwich transform: G = H^{-1} J H^{-1}, A = psd_sqrt(G).
+
+Literature Godambe information: G = H J^{-1} H.
+This module whitens using the inverse sandwich G^{-1} = H^{-1} J H^{-1}
+(with ridge on H), then A = psd_sqrt(G^{-1}).
 """
 
 from __future__ import annotations
@@ -26,7 +29,7 @@ def psd_sqrt(M: np.ndarray, eps: float = 1e-10) -> np.ndarray:
 @dataclass
 class GodambeGeometry:
     """
-    Godambe sandwich geometry for a fitted class-conditional model.
+    Whitening geometry from the inverse Godambe sandwich G^{-1} = H^{-1} J H^{-1}.
     """
 
     gradients: np.ndarray

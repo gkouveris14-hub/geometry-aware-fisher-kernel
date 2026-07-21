@@ -176,27 +176,35 @@ where $G_k \in \mathbb{R}^{n_k \times d}$ stacks score rows.
 
 ### 7. Godambe sandwich geometry and whitening
 
-The **Godambe information matrix** (sandwich form):
+In the Godambe / composite-likelihood literature, the **Godambe information matrix** is usually written
 
 $$
-\mathcal{G}_k = H_k^{-1} \cdot J_k \cdot H_k^{-1}
+G_k = H_k \cdot J_k^{-1} \cdot H_k
 $$
 
-Implementation uses a ridge-regularized inverse:
+(sensitivity–variability–sensitivity sandwich with **$J_k^{-1}$** in the middle).
+
+**This implementation does not use $G_k$ directly.** Whitening is built from the **inverse sandwich**
 
 $$
-H_k^{\mathrm{reg}} = H_k + \gamma I, \quad \mathcal{G}_k = \bigl(H_k^{\mathrm{reg}}\bigr)^{-1} \cdot J_k \cdot \bigl(H_k^{\mathrm{reg}}\bigr)^{-1}
+G_k^{-1} = H_k^{-1} \cdot J_k \cdot H_k^{-1}
+$$
+
+which is the standard sandwich form for the asymptotic covariance of the M-estimator (same object, inverted middle factor). With ridge on the Hessian:
+
+$$
+H_k^{\mathrm{reg}} = H_k + \gamma I, \quad G_k^{-1} = \bigl(H_k^{\mathrm{reg}}\bigr)^{-1} \cdot J_k \cdot \bigl(H_k^{\mathrm{reg}}\bigr)^{-1}
 $$
 
 with default $\gamma = 10^{-3}$ (`ridge_gamma`).
 
-A matrix square root $A_k = \mathcal{G}_k^{1/2}$ is obtained via eigendecomposition (clipped to PSD). The **whitened score** for class $k$ is the row vector:
+A matrix square root $A_k = \bigl(G_k^{-1}\bigr)^{1/2}$ is obtained via eigendecomposition (clipped to PSD). The **whitened score** for class $k$ is the row vector:
 
 $$
 \tilde g_k(x) = g_k(x) \cdot A_k^\top \in \mathbb{R}^d
 $$
 
-**Code:** `geometry.py` → `GodambeGeometry` (`fit()`, `transform()`), helpers `stable_symmetrize()`, `psd_sqrt()`.
+**Code:** `geometry.py` → `GodambeGeometry` (`fit()`, `transform()`), helpers `stable_symmetrize()`, `psd_sqrt()`. The fitted attribute `G_inv_` stores $G_k^{-1}$.
 
 ---
 
@@ -266,7 +274,7 @@ GeometryFisherClassifier.fit(X, y, ...)
 ├─ g₀(x), g₁(x) for all training x               composite.py  → per_observation_gradient
 ├─ H₀, H₁ from class objectives                  composite.py  → objective_hessian
 ├─ J₀, J₁ from stacked scores                  geometry.py   → GodambeGeometry.fit
-├─ A₀, A₁ from sandwich G                        geometry.py   → psd_sqrt
+├─ A₀, A₁ from inverse sandwich G⁻¹              geometry.py   → psd_sqrt
 │
 ├─ Φ(x) = build_feature_matrix(...)              features.py
 ├─ StandardScaler on Φ(x)                        pipeline.py  (scale_phi=True, default)
@@ -455,7 +463,7 @@ Directed graphs: **source → target** arrows. Gold nodes = exogenous (`age`, `s
 |--------|------|
 | `structure.py` | Structural mask $M$; PC and stability selection; edge blocking |
 | `composite.py` | Class-specific composite likelihood; optimization; gradients; Hessian |
-| `geometry.py` | Godambe sandwich $\mathcal{G} = H^{-1}JH^{-1}$; whitening matrix $A$ |
+| `geometry.py` | Inverse Godambe sandwich $G^{-1} = H^{-1}JH^{-1}$; whitening matrix $A$ |
 | `features.py` | Feature map $\Phi(x)$: `raw` or `godambe` |
 | `pipeline.py` | `GeometryFisherClassifier` — full fit/predict pipeline |
 | `cross_validation.py` | Stratified k-fold evaluation |
