@@ -1,6 +1,8 @@
 """
-Nested cross-validation for the Geometry-Aware Fisher Kernel.
-Follows the revised experimental protocol (no leakage).
+K-fold cross-validation for the Geometry-Aware Fisher Kernel.
+
+Each fold fits a fresh classifier on the training split (with shared ordinal
+thresholds within that fit) and evaluates on the held-out test split.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ class FoldResult:
 
 
 @dataclass
-class NestedCVResult:
+class CrossValidationResult:
     fold_results: List[FoldResult]
     mean_accuracy: float
     std_accuracy: float
@@ -34,9 +36,9 @@ class NestedCVResult:
     std_auc: float
 
 
-class NestedCVExperiment:
+class CrossValidationExperiment:
     """
-    Nested cross-validation experiment.
+    Stratified k-fold cross-validation for GeometryFisherClassifier.
 
     Parameters
     ----------
@@ -47,7 +49,7 @@ class NestedCVExperiment:
     feature_type : str
         "godambe" (proposed) or "raw" (ablation).
     outer_splits : int
-        Number of outer folds (default 5).
+        Number of CV folds (default 5).
     random_state : int
     """
 
@@ -86,11 +88,11 @@ class NestedCVExperiment:
         continuous_idx: np.ndarray,
         ordinal_idx: np.ndarray,
         variable_names: Optional[List[str]] = None,
-    ) -> NestedCVResult:
+    ) -> CrossValidationResult:
         X = np.asarray(X, dtype=float)
         y = np.asarray(y).astype(int)
 
-        outer_cv = StratifiedKFold(
+        cv = StratifiedKFold(
             n_splits=self.outer_splits,
             shuffle=True,
             random_state=self.random_state,
@@ -98,14 +100,13 @@ class NestedCVExperiment:
 
         fold_results = []
 
-        for fold_idx, (train_idx, test_idx) in enumerate(outer_cv.split(X, y)):
+        for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X, y)):
             if self.verbose:
-                print(f"\n=== Outer Fold {fold_idx + 1}/{self.outer_splits} ===")
+                print(f"\n=== Fold {fold_idx + 1}/{self.outer_splits} ===")
 
             X_train, X_test = X[train_idx], X[test_idx]
             y_train, y_test = y[train_idx], y[test_idx]
 
-            # Create a fresh classifier for this fold
             clf = GeometryFisherClassifier(
                 mask=self.mask,
                 mask_object=self.mask_object,
@@ -119,15 +120,14 @@ class NestedCVExperiment:
                 verbose=self.verbose,
             )
 
-            # Fit only on the training fold
             clf.fit(
-                X_train, y_train,
+                X_train,
+                y_train,
                 continuous_idx=continuous_idx,
                 ordinal_idx=ordinal_idx,
                 variable_names=variable_names,
             )
 
-            # Predict on the held-out test fold
             y_pred = clf.predict(X_test)
             y_proba = clf.predict_proba(X_test)[:, 1]
 
@@ -146,19 +146,20 @@ class NestedCVExperiment:
                     f"AUC: {auc:.3f} | n_params: {n_params}"
                 )
 
-            fold_results.append(FoldResult(
-                accuracy=acc,
-                macro_f1=f1,
-                auc=auc,
-                n_params=n_params,
-            ))
+            fold_results.append(
+                FoldResult(
+                    accuracy=acc,
+                    macro_f1=f1,
+                    auc=auc,
+                    n_params=n_params,
+                )
+            )
 
-        # Aggregate
         accs = [r.accuracy for r in fold_results]
         f1s = [r.macro_f1 for r in fold_results]
         aucs = [r.auc for r in fold_results if not np.isnan(r.auc)]
 
-        result = NestedCVResult(
+        result = CrossValidationResult(
             fold_results=fold_results,
             mean_accuracy=float(np.mean(accs)),
             std_accuracy=float(np.std(accs)),
@@ -170,7 +171,7 @@ class NestedCVExperiment:
 
         if self.verbose:
             print("\n" + "=" * 50)
-            print("NESTED CV SUMMARY")
+            print("CROSS-VALIDATION SUMMARY")
             print("=" * 50)
             print(f"Accuracy:  {result.mean_accuracy:.3f} ± {result.std_accuracy:.3f}")
             print(f"Macro-F1:  {result.mean_macro_f1:.3f} ± {result.std_macro_f1:.3f}")

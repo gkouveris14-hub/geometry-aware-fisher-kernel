@@ -17,7 +17,7 @@ import pandas as pd
 
 from .baselines import run_baseline_cv
 from .data import load_heart_disease
-from .nested_cv import NestedCVExperiment
+from .cross_validation import CrossValidationExperiment
 from .structure import StructuralMask
 
 
@@ -132,7 +132,7 @@ def run_paper_experiments(
             label = "proposed method" if method.category == "proposed" else "internal ablation"
             print(f"\n>>> {method.name} ({label})\n")
 
-        experiment = NestedCVExperiment(
+        experiment = CrossValidationExperiment(
             mask="hand",
             mask_object=mask,
             feature_type=method.feature_type,

@@ -99,7 +99,7 @@ geometry_fisher/
   geometry.py           Godambe sandwich whitening
   features.py           Raw / Godambe feature construction
   pipeline.py           GeometryFisherClassifier
-  nested_cv.py          Cross-validation experiment runner
+  cross_validation.py     Stratified k-fold CV runner
   baselines.py            LR / RF / XGB baselines
   paper_experiments.py    Manuscript results table
   data.py                 Heart Disease loader
