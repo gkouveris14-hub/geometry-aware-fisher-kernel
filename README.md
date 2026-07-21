@@ -22,7 +22,7 @@ data → mask M → fit θ₀, θ₁ → gradients g₀(x), g₁(x) → Godambe 
 |------|--------|
 | End-to-end orchestration | `geometry_fisher/pipeline.py` → `GeometryFisherClassifier` |
 | Cross-validation | `geometry_fisher/cross_validation.py` → `CrossValidationExperiment` |
-| Experiments & baselines | `examples/run_experiments.py`, `examples/run_experiment2.py`, `examples/run_simulation_study.py` |
+| Experiments & baselines | `examples/run_experiments.py`, `examples/run_experiment2.py` |
 
 ---
 
@@ -381,85 +381,11 @@ python examples/run_experiment2.py
 
 Source: [`docs/results/experiment2_results.csv`](docs/results/experiment2_results.csv)
 
-### Experiment 3 — when Godambe beats raw (simulation)
-
-Score-level simulation in `geometry_fisher/simulation.py` that isolates the whitening step from composite model fitting. Each of **30 replicates** per sample size proceeds as follows:
-
-1. **Draw geometry.** Sample sensitivity $H \succ 0$ and variability $J \succ 0$ in $\mathbb R^{d \times d}$ ($d=40$), with $H \neq J$ as in composite likelihood.
-2. **Build the whitening map.** Compute $G^{-1} = H^{-1} J H^{-1}$ and its symmetric square root $A$ such that $A^\top A = G^{-1}$.
-3. **Sample scores.** Draw $n$ raw score vectors $g_i \sim \mathcal N(0, J)$.
-4. **Godambe features.** Set $\tilde g_i = A g_i$.
-5. **Labels.** Choose a sparse vector $w$ with four nonzero entries and assign $y_i = 1$ if $w^\top \tilde g_i$ exceeds the sample median (roughly balanced classes).
-6. **Classification.** Stratified train/test split (35% test). Fit **L2-regularized logistic regression** ($C=0.005$) on raw $g$ and on $\tilde g$, with column standardization applied to each feature set before fitting.
-
-The label depends on a **sparse** linear functional of $\tilde g$ but on a **dense** functional of $g$. Under regularization, Godambe features therefore need fewer samples to reach the same AUC.
-
-| $n$ | Raw Acc | Godambe Acc | Raw AUC | Godambe AUC |
-|-----|---------|-------------|---------|-------------|
-| 60 | 0.733 ± 0.081 | **0.840 ± 0.086** | 0.836 ± 0.083 | **0.930 ± 0.066** |
-| 100 | 0.795 ± 0.083 | **0.881 ± 0.044** | 0.891 ± 0.064 | **0.956 ± 0.033** |
-| 160 | 0.807 ± 0.068 | **0.890 ± 0.047** | 0.902 ± 0.050 | **0.961 ± 0.028** |
-| 240 | 0.838 ± 0.045 | **0.900 ± 0.036** | 0.927 ± 0.035 | **0.969 ± 0.020** |
-| 360 | 0.876 ± 0.041 | **0.917 ± 0.037** | 0.952 ± 0.021 | **0.978 ± 0.020** |
-
-Mean $\|H-J\|/\|H\| \approx 1.0$ across replicates (Fisher equality would give $\approx 0$).
-
-**Takeaway:** Godambe whitening improves **sample efficiency** when the discriminative signal is simple in geometry-aware coordinates. The gap **shrinks as $n$ grows**, consistent with Exp 1–2 on Heart Disease ($n=531$), where raw and Godambe match.
-
-```bash
-python examples/run_simulation_study.py
-```
-
-Source: [`docs/results/simulation_geometry_results.csv`](docs/results/simulation_geometry_results.csv)
-
 ---
 
-## Choosing raw vs Godambe whitening
+## Raw vs Godambe features
 
-After fitting the composite models and structural mask, run the **feature-type selection report** on your tabular data. It estimates the geometry from your dataset (not from a simulation draw) and compares raw vs Godambe features under the same cross-validation protocol you will use in the final experiment.
-
-```bash
-python examples/compare_feature_types.py --mask hand
-python examples/compare_feature_types.py --mask pc
-python examples/compare_feature_types.py --mask stability
-```
-
-The report includes:
-
-| Check | What it tells you |
-|-------|-------------------|
-| $\|H-J\|/\|H\|$ per class | Composite curvature vs score variability — large values mean Fisher geometry is inappropriate |
-| $\kappa(H)$, $\kappa(G^{-1})$ | Numerical stability of the estimated whitening |
-| $n_{\min}/d$ | Smallest class size vs mask parameter count |
-| Paired CV (raw vs Godambe) | Empirical AUC and accuracy on **your** labels |
-| **Recommendation** | Suggested `feature_type` (`raw` or `godambe`) with reasons |
-
-Decision logic (implemented in `geometry_fisher/diagnostics.py`):
-
-1. **Clear CV winner** ($\Delta\text{AUC} \geq 0.02$ or same for accuracy) → use the better feature type.
-2. **CV tie** and $n_{\min}/d < 2$ → prefer **Godambe** (geometry hard to estimate).
-3. **CV tie** and mean $\|H-J\|/\|H\| \geq 0.5$ → prefer **Godambe** (composite-likelihood regime).
-4. **CV tie** with plenty of data and moderate $H$–$J$ gap → **raw** is sufficient.
-
-Programmatic use:
-
-```python
-from geometry_fisher.diagnostics import evaluate_feature_type_choice
-
-report = evaluate_feature_type_choice(
-    X, y, continuous_idx, ordinal_idx, variable_names,
-    mask="hand",
-    mask_object=mask,
-)
-feature_type = report.recommendation  # 'raw' or 'godambe'
-```
-
-| Use **`feature_type="godambe"`** when… | **`feature_type="raw"`** is enough when… |
-|----------------------------------------|------------------------------------------|
-| The report recommends `godambe` | The report recommends `raw` |
-| $n_{\min}/d$ is small | $n_{\min}/d \gtrsim 2$ and CV shows no gain |
-| Mean $\|H-J\|/\|H\|$ is large | Moderate geometry mismatch and CV tie |
-| Godambe wins paired CV | Raw wins or ties paired CV with ample data |
+The default is `feature_type="godambe"`, which applies inverse-Godambe whitening (§7). On Heart Disease (Exp 1–2), **raw and Godambe perform similarly**; use `feature_type="raw"` as an ablation. Under composite likelihood, Godambe is the principled metric when $H \neq J$; when sample size is large and CV shows no difference, either choice is fine.
 
 ---
 
@@ -567,8 +493,6 @@ Directed graphs: **source → target** arrows. Gold nodes = exogenous (`age`, `s
 | `features.py` | Feature map $\Phi(x)$: `raw` or `godambe` |
 | `pipeline.py` | `GeometryFisherClassifier` — full fit/predict pipeline |
 | `cross_validation.py` | Stratified k-fold evaluation |
-| `simulation.py` | Synthetic score-geometry study (Exp 3) |
-| `diagnostics.py` | Post-fit tests to choose raw vs Godambe features |
 | `experiments.py` | Baseline comparison tables |
 | `baselines.py` | Logistic regression, Random Forest, XGBoost |
 | `data.py` | Heart Disease data loader |
