@@ -15,7 +15,7 @@ import numpy as np
 from geometry_fisher.composite import CompositeLikelihoodModel
 from geometry_fisher.cross_validation import CrossValidationExperiment
 from geometry_fisher.data import load_heart_disease
-from geometry_fisher.simulation import _hj_discrepancy
+from geometry_fisher.simulation import hj_discrepancy
 from geometry_fisher.structure import StructuralMask
 
 
@@ -50,7 +50,7 @@ def _mean_hj_discrepancy(
         grads = model.per_observation_gradient(Xk)
         H = model.objective_hessian(Xk)
         J = (grads.T @ grads) / len(Xk)
-        values.append(_hj_discrepancy(H, J))
+        values.append(hj_discrepancy(H, J))
     return float(np.mean(values)) if values else float("nan")
 
 

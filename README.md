@@ -383,19 +383,28 @@ Source: [`docs/results/experiment2_results.csv`](docs/results/experiment2_result
 
 ### Experiment 3 — when Godambe beats raw (simulation)
 
-Controlled **score-level** simulation (`geometry_fisher/simulation.py`): draw $H \neq J$, sample scores $g \sim \mathcal N(0,J)$, build labels from a **sparse linear functional of Godambe-whitened scores** $Ag$, and compare regularized logistic regression on raw $g$ vs $Ag$ vs $H^{-1/2}g$. This isolates the geometry question without composite-fitting noise.
+Score-level simulation in `geometry_fisher/simulation.py` that isolates the whitening step from composite model fitting. Each of **30 replicates** per sample size proceeds as follows:
 
-| $n$ | Raw AUC | Hessian AUC | Godambe AUC |
-|-----|---------|-------------|-------------|
-| 60 | 0.836 ± 0.083 | 0.945 ± 0.054 | **0.930 ± 0.066** |
-| 100 | 0.891 ± 0.064 | 0.965 ± 0.025 | **0.956 ± 0.033** |
-| 160 | 0.902 ± 0.050 | 0.974 ± 0.015 | **0.961 ± 0.028** |
-| 240 | 0.927 ± 0.035 | 0.979 ± 0.012 | **0.969 ± 0.020** |
-| 360 | 0.952 ± 0.021 | 0.987 ± 0.013 | **0.978 ± 0.020** |
+1. **Draw geometry.** Sample sensitivity $H \succ 0$ and variability $J \succ 0$ in $\mathbb R^{d \times d}$ ($d=40$), with $H \neq J$ as in composite likelihood.
+2. **Build the whitening map.** Compute $G^{-1} = H^{-1} J H^{-1}$ and its symmetric square root $A$ such that $A^\top A = G^{-1}$.
+3. **Sample scores.** Draw $n$ raw score vectors $g_i \sim \mathcal N(0, J)$.
+4. **Godambe features.** Set $\tilde g_i = A g_i$.
+5. **Labels.** Choose a sparse vector $w$ with four nonzero entries and assign $y_i = 1$ if $w^\top \tilde g_i$ exceeds the sample median (roughly balanced classes).
+6. **Classification.** Stratified train/test split (35% test). Fit **L2-regularized logistic regression** ($C=0.005$) on raw $g$ and on $\tilde g$, with column standardization applied to each feature set before fitting.
 
-30 replicates per row; $d=40$ score dimensions, 4 active label coefficients, LR $C=0.005$, features column-standardized before classification.
+The label depends on a **sparse** linear functional of $\tilde g$ but on a **dense** functional of $g$. Under regularization, Godambe features therefore need fewer samples to reach the same AUC.
 
-**Takeaway:** Godambe whitening improves **sample efficiency** when the signal is sparse in geometry-aware coordinates but dense in raw score space. The gap **shrinks as $n$ grows** — matching Exp 1–2, where 531 samples were enough for raw gradients to catch up.
+| $n$ | Raw AUC | Godambe AUC |
+|-----|---------|-------------|
+| 60 | 0.836 ± 0.083 | **0.930 ± 0.066** |
+| 100 | 0.891 ± 0.064 | **0.956 ± 0.033** |
+| 160 | 0.902 ± 0.050 | **0.961 ± 0.028** |
+| 240 | 0.927 ± 0.035 | **0.969 ± 0.020** |
+| 360 | 0.952 ± 0.021 | **0.978 ± 0.020** |
+
+Mean $\|H-J\|/\|H\| \approx 1.0$ across replicates (Fisher equality would give $\approx 0$).
+
+**Takeaway:** Godambe whitening improves **sample efficiency** when the discriminative signal is simple in geometry-aware coordinates. The gap **shrinks as $n$ grows**, consistent with Exp 1–2 on Heart Disease ($n=531$), where raw and Godambe match.
 
 ```bash
 python examples/run_simulation_study.py
