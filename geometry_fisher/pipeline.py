@@ -65,6 +65,12 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
         ordinal_idx: np.ndarray,
         variable_names: Optional[List[str]] = None,
     ) -> "GeometryFisherClassifier":
+        """
+        Fit the classifier.
+
+        Ordinal thresholds are estimated from all training rows (both classes)
+        and passed identically to the class-0 and class-1 composite models.
+        """
         X = np.asarray(X, dtype=float)
         y = np.asarray(y).astype(int)
 

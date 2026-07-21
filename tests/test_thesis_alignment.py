@@ -130,6 +130,32 @@ def test_sandwich_whitening_is_psd(heart_data):
     assert np.min(eigvals) > -1e-8
 
 
+def test_class_models_share_identical_ordinal_thresholds(heart_data):
+    from geometry_fisher.pipeline import GeometryFisherClassifier
+    from geometry_fisher.structure import StructuralMask
+
+    X, y, variable_names, continuous_idx, ordinal_idx = heart_data
+    mask = StructuralMask.from_domain_knowledge(
+        variable_names=variable_names,
+        exogenous=["age", "sex"],
+    )
+
+    clf = GeometryFisherClassifier(
+        mask="hand",
+        mask_object=mask,
+        feature_type="godambe",
+        verbose=False,
+    )
+    clf.fit(X, y, continuous_idx, ordinal_idx, variable_names)
+
+    assert clf.model_0_.thresholds_.keys() == clf.model_1_.thresholds_.keys()
+    for key in clf.model_0_.thresholds_:
+        assert np.allclose(
+            clf.model_0_.thresholds_[key],
+            clf.model_1_.thresholds_[key],
+        )
+
+
 def test_only_raw_and_godambe_feature_types_are_supported():
     from geometry_fisher.features import FEATURE_TYPES, normalize_feature_type
 

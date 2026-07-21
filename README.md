@@ -40,6 +40,19 @@ python examples/run_paper_experiments.py
 
 This runs 5-fold CV on the 531-sample thesis protocol and writes `examples/outputs/paper_experiments.csv`.
 
+## Cross-validation protocol
+
+Evaluation uses **5-fold stratified CV** (`random_state=42`). In each fold:
+
+1. Split into train / test (no test patients in fitting).
+2. **Estimate ordinal thresholds once** from the pooled **training** data (both classes combined).
+3. Fit class-0 and class-1 composite models using **the same shared thresholds**.
+4. Build gradient features, apply Godambe whitening (if `feature_type="godambe"`), fit logistic regression on train, evaluate on test.
+
+**Important:** within every fold, class 0 and class 1 use **identical** ordinal cutpoints for `sex`, `fbs`, `exang`, and `slope`. This keeps the two class-specific dependency matrices **W₀** and **W₁** in the same ordinal geometry, so their gradients and Godambe features are comparable.
+
+Thresholds are re-estimated per fold from that fold's training subset only (no test leakage). Dependency heatmaps in `plot_dependencies.py` fit on all 531 samples once, with the same shared-threshold rule.
+
 ## Visualizations
 
 Preview figures from the bundled Heart Disease run (531 samples, hand-specified mask):
