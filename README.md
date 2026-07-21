@@ -47,10 +47,12 @@ python examples/run_experiments.py
 
 ### Experiment 2 — data-driven masks (Godambe whitening)
 
-| Method | Accuracy | Macro-F1 | ROC-AUC | Mean n_params |
-|--------|----------|----------|---------|---------------|
-| PC algorithm (single run) | 0.795 ± 0.015 | 0.781 ± 0.018 | 0.849 ± 0.021 | 14.6 |
-| PC stability selection | 0.782 ± 0.023 | 0.765 ± 0.026 | 0.829 ± 0.034 | 12.4 |
+| Method | Accuracy | Macro-F1 | ROC-AUC | n_params |
+|--------|----------|----------|---------|----------|
+| PC algorithm (single run) | 0.782 ± 0.028 | 0.767 ± 0.031 | 0.846 ± 0.036 | 15 |
+| PC stability selection | 0.793 ± 0.030 | 0.779 ± 0.034 | 0.849 ± 0.032 | 12 |
+
+The mask is discovered once on all 531 samples and held fixed across folds (thesis Experiment 2 protocol).
 
 Source: [`docs/results/experiment2_results.csv`](docs/results/experiment2_results.csv)
 
@@ -70,7 +72,7 @@ In each fold:
 2. Fit class-specific composite models under the same mask.
 3. Build features, fit logistic regression on the training fold, evaluate on the test fold.
 
-For Experiment 2, the structural mask is re-estimated on each training fold.
+For Experiment 2, the structural mask is discovered **once on the full pooled sample** (531 patients) and reused in every CV fold, matching the thesis protocol.
 
 ## Structural masks
 

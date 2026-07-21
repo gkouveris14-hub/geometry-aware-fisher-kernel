@@ -230,3 +230,55 @@ class StructuralMask:
 
     def __repr__(self) -> str:
         return f"StructuralMask(p={self.p}, n_params={self.n_params})"
+
+
+def scale_continuous_features(
+    X: np.ndarray,
+    continuous_idx: np.ndarray,
+) -> np.ndarray:
+    """Standardize continuous columns (used before PC structure discovery)."""
+    from sklearn.preprocessing import StandardScaler
+
+    X_scaled = np.asarray(X, dtype=float).copy()
+    X_scaled[:, continuous_idx] = StandardScaler().fit_transform(X[:, continuous_idx])
+    return X_scaled
+
+
+def discover_data_driven_mask(
+    X: np.ndarray,
+    variable_names: List[str],
+    continuous_idx: np.ndarray,
+    mask: str,
+    mask_params: Optional[dict] = None,
+) -> StructuralMask:
+    """
+    Discover a data-driven mask on the provided data matrix.
+
+    Experiment 2 in the thesis runs PC once on the full pooled sample and
+    reuses the curated mask in every CV fold.
+    """
+    params = mask_params or {}
+    X_scaled = scale_continuous_features(X, continuous_idx)
+
+    if mask == "pc":
+        return StructuralMask.from_pc_algorithm(
+            X_scaled,
+            list(variable_names),
+            alpha=params.get("alpha", 0.05),
+            exogenous=params.get("exogenous"),
+            forbidden_edges=params.get("forbidden_edges"),
+        )
+    if mask in ("stability", "data_driven"):
+        return StructuralMask.from_stability_selection(
+            X_scaled,
+            list(variable_names),
+            alpha=params.get("alpha", 0.05),
+            tau_stab=params.get("tau_stab", 0.6),
+            B=params.get("B", 50),
+            exogenous=params.get("exogenous"),
+            forbidden_edges=params.get("forbidden_edges"),
+            random_state=params.get("random_state", 42),
+        )
+    raise ValueError(
+        f"Cannot discover mask type {mask!r}. Use 'pc' or 'stability'."
+    )

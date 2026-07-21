@@ -70,8 +70,10 @@ def main() -> pd.DataFrame:
             variable_names=variable_names,
         )
 
-        mean_n_params = sum(r.n_params for r in result.fold_results) / len(
-            result.fold_results
+        mean_n_params = (
+            result.fixed_mask.n_params
+            if result.fixed_mask is not None
+            else sum(r.n_params for r in result.fold_results) / len(result.fold_results)
         )
 
         rows.append(

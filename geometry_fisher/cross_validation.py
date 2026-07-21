@@ -5,13 +5,13 @@ K-fold cross-validation for the geometry-aware classifier.
 from __future__ import annotations
 
 import numpy as np
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Literal
 from dataclasses import dataclass
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 
 from .pipeline import GeometryFisherClassifier
-from .structure import StructuralMask
+from .structure import StructuralMask, discover_data_driven_mask
 
 
 @dataclass
@@ -31,6 +31,7 @@ class CrossValidationResult:
     std_macro_f1: float
     mean_auc: float
     std_auc: float
+    fixed_mask: Optional[StructuralMask] = None
 
 
 class CrossValidationExperiment:
@@ -49,6 +50,10 @@ class CrossValidationExperiment:
         ``exogenous`` blocks all incoming edges to the listed variables.
         ``forbidden_edges`` is a list of ``(target, source)`` pairs removed
         after structure discovery (domain-knowledge curation).
+    discover_mask_on : {"full_data", "train_fold"}
+        For ``pc`` and ``stability``, where to learn the structural mask.
+        ``full_data`` matches the thesis Experiment 2 protocol: discover once
+        on the pooled sample and reuse the same mask in every fold.
     feature_type : str
         ``godambe`` (thesis method) or ``raw`` (unwhitened gradients).
     outer_splits : int
@@ -61,6 +66,7 @@ class CrossValidationExperiment:
         mask: Union[str, StructuralMask] = "hand",
         mask_object: Optional[StructuralMask] = None,
         mask_params: Optional[Dict[str, Any]] = None,
+        discover_mask_on: Literal["full_data", "train_fold"] = "full_data",
         feature_type: str = "godambe",
         lambda_reg: float = 0.01,
         ridge_gamma: float = 1e-3,
@@ -74,6 +80,7 @@ class CrossValidationExperiment:
         self.mask = mask
         self.mask_object = mask_object
         self.mask_params = mask_params or {}
+        self.discover_mask_on = discover_mask_on
         self.feature_type = feature_type
         self.lambda_reg = lambda_reg
         self.ridge_gamma = ridge_gamma
@@ -95,6 +102,33 @@ class CrossValidationExperiment:
         X = np.asarray(X, dtype=float)
         y = np.asarray(y).astype(int)
 
+        mask = self.mask
+        mask_object = self.mask_object
+        mask_params = self.mask_params
+        fixed_mask: Optional[StructuralMask] = None
+
+        if mask_object is None and mask in ("pc", "stability", "data_driven"):
+            if self.discover_mask_on == "full_data":
+                if variable_names is None:
+                    raise ValueError(
+                        "variable_names are required to discover a data-driven mask."
+                    )
+                fixed_mask = discover_data_driven_mask(
+                    X,
+                    variable_names,
+                    continuous_idx,
+                    str(mask),
+                    mask_params,
+                )
+                mask = "hand"
+                mask_object = fixed_mask
+                mask_params = {}
+                if self.verbose:
+                    print(
+                        "Fixed structural mask discovered on full data: "
+                        f"{fixed_mask}"
+                    )
+
         cv = StratifiedKFold(
             n_splits=self.outer_splits,
             shuffle=True,
@@ -110,10 +144,21 @@ class CrossValidationExperiment:
             X_train, X_test = X[train_idx], X[test_idx]
             y_train, y_test = y[train_idx], y[test_idx]
 
+            fold_mask = mask
+            fold_mask_object = mask_object
+            fold_mask_params = mask_params
+
+            if (
+                mask_object is None
+                and mask in ("pc", "stability", "data_driven")
+                and self.discover_mask_on == "train_fold"
+            ):
+                fold_mask_params = mask_params
+
             clf = GeometryFisherClassifier(
-                mask=self.mask,
-                mask_object=self.mask_object,
-                mask_params=self.mask_params,
+                mask=fold_mask,
+                mask_object=fold_mask_object,
+                mask_params=fold_mask_params,
                 lambda_reg=self.lambda_reg,
                 ridge_gamma=self.ridge_gamma,
                 shrink_j=self.shrink_j,
@@ -170,6 +215,7 @@ class CrossValidationExperiment:
             std_macro_f1=float(np.std(f1s)),
             mean_auc=float(np.mean(aucs)) if aucs else np.nan,
             std_auc=float(np.std(aucs)) if aucs else np.nan,
+            fixed_mask=fixed_mask,
         )
 
         if self.verbose:

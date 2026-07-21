@@ -240,6 +240,34 @@ def test_forbidden_edges_in_mask_params(heart_data):
     assert clf.mask_.n_params == base_mask.n_params - 1
 
 
+def test_fixed_full_data_mask_is_constant_across_folds(heart_data):
+    from geometry_fisher.cross_validation import CrossValidationExperiment
+
+    X, y, variable_names, continuous_idx, ordinal_idx = heart_data
+
+    experiment = CrossValidationExperiment(
+        mask="pc",
+        mask_params={"alpha": 0.05, "exogenous": ["age", "sex"]},
+        discover_mask_on="full_data",
+        feature_type="raw",
+        outer_splits=3,
+        random_state=42,
+        verbose=False,
+    )
+    result = experiment.run(
+        X,
+        y,
+        continuous_idx=continuous_idx,
+        ordinal_idx=ordinal_idx,
+        variable_names=variable_names,
+    )
+
+    assert result.fixed_mask is not None
+    assert result.fixed_mask.n_params > 0
+    assert len({r.n_params for r in result.fold_results}) == 1
+    assert result.fold_results[0].n_params == result.fixed_mask.n_params
+
+
 def test_structure_graph_plots_for_hand_mask(heart_data):
     import matplotlib
 
