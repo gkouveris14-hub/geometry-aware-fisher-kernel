@@ -55,7 +55,7 @@ class CrossValidationExperiment:
         ``full_data`` discovers the mask once on the full dataset and reuses it
         in every fold. ``train_fold`` re-estimates the mask on each training split.
     feature_type : str
-        ``godambe`` (thesis method) or ``raw`` (unwhitened gradients).
+        ``godambe`` (geometry-aware method) or ``raw`` (unwhitened gradients).
     outer_splits : int
         Number of CV folds (default 5).
     random_state : int

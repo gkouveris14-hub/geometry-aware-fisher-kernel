@@ -1,5 +1,5 @@
 """
-Baseline classifiers for the Heart Disease comparison (thesis protocol).
+Baseline classifiers for the Heart Disease comparison.
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ def run_baseline_cv(
     verbose: bool = True,
 ) -> BaselineCVResult:
     """
-    Evaluate standard baselines with the same CV protocol as the thesis.
+    Evaluate standard baselines with the same CV protocol as the main experiments.
     """
     X = np.asarray(X, dtype=float)
     y = np.asarray(y).astype(int)

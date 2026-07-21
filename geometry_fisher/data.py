@@ -1,5 +1,5 @@
 """
-Data loading for the UCI Heart Disease benchmark (thesis protocol).
+Data loading for the UCI Heart Disease benchmark.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ def load_heart_disease(
     verbose: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, List[str], np.ndarray, np.ndarray]:
     """
-    Load the 9-variable Heart Disease dataset used in the thesis.
+    Load the 9-variable Heart Disease dataset used in the experiments.
 
     Uses all four centers (531 complete cases after dropna).
     """

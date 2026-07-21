@@ -1,5 +1,5 @@
 """
-Run the Heart Disease comparison table from the thesis (Experiment 1).
+Run the Heart Disease comparison table (Experiment 1).
 
 Outputs are written to docs/results/experiment1_results.csv and
 examples/outputs/results.csv.

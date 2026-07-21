@@ -1,9 +1,5 @@
 # Geometry-Aware Generalized Fisher Kernel
 
-Implementation of the method from:
-
-> Konstantinos Gkouveris, *A Geometry-Aware Generalized Fisher Kernel Framework for Binary Classification of Mixed-Type Data under Composite Likelihood*, University of Nicosia, 2026.
-
 The pipeline fits **class-specific composite likelihood models** under a **structural mask**, builds **generalized Fisher score features** from both classes, whitens them with the **inverse Godambe metric** (replacing inverse Fisher information in the classical Fisher kernel), and trains a **logistic regression** classifier on the resulting feature vectors.
 
 ---
@@ -188,7 +184,7 @@ $$
 
 (sensitivity–variability–sensitivity sandwich; see Godambe, 1960; Varin et al., 2011). When the model is well specified, $G_k$ reduces to the Fisher information; under composite likelihood it accounts for both curvature ($H_k$) and score variability ($J_k$).
 
-#### Inverse Godambe metric (thesis whitening geometry)
+#### Inverse Godambe metric
 
 The classical Fisher kernel uses **$I(\theta)^{-1}$** as the geometry-defining object. This framework uses the same construction with Godambe information in place of Fisher information: the **inverse Godambe metric**
 
@@ -196,7 +192,7 @@ $$
 G_k^{-1} = H_k^{-1} \cdot J_k \cdot H_k^{-1}
 $$
 
-defines the local Riemannian geometry for gradient-based features (thesis §3.4.3). It is the direct Godambe analogue of inverse Fisher information—not an ad hoc inversion, but the metric that weights each score direction by both objective curvature and observed gradient variability.
+defines the local Riemannian geometry for gradient-based features. It is the direct Godambe analogue of inverse Fisher information—not an ad hoc inversion, but the metric that weights each score direction by both objective curvature and observed gradient variability.
 
 With ridge on the Hessian:
 
