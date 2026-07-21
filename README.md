@@ -1,18 +1,282 @@
 # Geometry-Aware Generalized Fisher Kernel
 
-Code for the MSc thesis:
+Implementation of the method from:
 
 > Konstantinos Gkouveris, *A Geometry-Aware Generalized Fisher Kernel Framework for Binary Classification of Mixed-Type Data under Composite Likelihood*, University of Nicosia, 2026.
 
-## Method
+The pipeline fits **class-specific composite likelihood models** under a **structural mask**, builds **Fisher score features** from both classes, optionally **whitens** them with the **Godambe sandwich geometry**, and trains a **logistic regression** classifier on the resulting feature vectors.
 
-For each class, the model fits a masked composite likelihood on mixed continuous and ordinal variables. Per-observation score gradients from both class models are concatenated and, when `feature_type="godambe"`, whitened using the Godambe sandwich metric built from the Hessian **H** and gradient second moment **J**. A logistic regression classifier is trained on the resulting features.
+---
 
-Use `feature_type="raw"` for the unwhitened gradient baseline from the thesis.
+## Overview
+
+For binary label $y \in \{0,1\}$ and mixed-type feature vector $x \in \mathbb{R}^p$:
+
+1. Choose a structural mask $M$ (hand-specified or data-driven).
+2. Fit a separate masked composite model in each class to obtain $\hat\theta_0, \hat\theta_1$.
+3. For each observation, compute class-conditional score gradients $g_0(x), g_1(x)$.
+4. Build $\Phi(x)$ by concatenating raw gradients or Godambe-whitened gradients.
+5. Train logistic regression on $\Phi(x)$.
+
+```
+data → mask M → fit θ₀, θ₁ → gradients g₀(x), g₁(x) → Godambe whitening → Φ(x) → logistic regression
+```
+
+| Step | Module |
+|------|--------|
+| End-to-end orchestration | `geometry_fisher/pipeline.py` → `GeometryFisherClassifier` |
+| Cross-validation | `geometry_fisher/cross_validation.py` → `CrossValidationExperiment` |
+| Experiments & baselines | `examples/run_experiments.py`, `examples/run_experiment2.py` |
+
+---
+
+## Mathematical framework
+
+### Notation
+
+- $p$: number of variables (9 in the Heart Disease benchmark).
+- $M \in \{0,1\}^{p \times p}$: binary **structural mask**; $M_{ij}=1$ allows a directed dependency **source $j$ → target $i$**.
+- $W \in \mathbb{R}^{p \times p}$: dependency weight matrix; only entries where $M_{ij}=1$ are free parameters, collected in $\theta \in \mathbb{R}^d$, $d = \sum_{ij} M_{ij}$.
+- Continuous index set $\mathcal{C}$, ordinal index set $\mathcal{O}$.
+
+Masked linear predictor for variable $i$:
+
+$$
+\mu_i(x) = \sum_{j=1}^{p} M_{ij}\, W_{ij}\, x_j = \bigl[(W \odot M)\, x\bigr]_i
+$$
+
+**Code:** `composite.py` → `_compute_mu()`, mask applied in `CompositeLikelihoodModel.fit()`.
+
+---
+
+### 1. Structural mask
+
+The mask encodes which conditional dependencies are estimated. Diagonal entries are zero (no self-loops).
+
+| Mask type | How it is built | Code |
+|-----------|-----------------|------|
+| Hand-specified | Domain knowledge; `age`, `sex` exogenous | `StructuralMask.from_domain_knowledge()` |
+| PC algorithm | Single PC run on pooled data (Fisher-Z, $\alpha=0.05$) | `StructuralMask.from_pc_algorithm()` |
+| Stability selection | Bootstrap PC + frequency threshold $\tau$ | `StructuralMask.from_stability_selection()` |
+
+Post-discovery curation (block incoming edges to exogenous variables, remove specific edges):
+
+```python
+mask = mask.enforce_exogeneity(["age", "sex"])
+mask = mask.block_edges([("chol", "slope")])  # remove source → target
+```
+
+**Code:** `structure.py` → `StructuralMask`, `discover_data_driven_mask()`, `_directed_adjacency_from_pc_graph()`.
+
+---
+
+### 2. Class-specific composite likelihood
+
+For each class $k \in \{0,1\}$, fit a model on $\{x_i : y_i = k\}$ with the **same mask** $M$ but **class-specific** parameters $\theta_k$.
+
+#### Continuous variables ($j \in \mathcal{C}$)
+
+Gaussian negative log-likelihood (up to constants):
+
+$$
+\ell_{\mathrm{cont}}(x; \theta) = \frac{1}{2} \sum_{j \in \mathcal{C}} \bigl(x_j - \mu_j(x)\bigr)^2
+$$
+
+**Code:** `composite.py` → `_continuous_loss_one()`.
+
+#### Ordinal variables ($j \in \mathcal{O}$)
+
+Ordered probit: categories $c_0 < \cdots < c_{M-1}$ with thresholds $\tau_{j,0} < \cdots < \tau_{j,M-2}$:
+
+$$
+P(x_j = c_m \mid x) =
+\begin{cases}
+\Phi(\tau_{j,0} - \mu_j), & m = 0 \\
+\Phi(\tau_{j,m} - \mu_j) - \Phi(\tau_{j,m-1} - \mu_j), & 0 < m < M-1 \\
+1 - \Phi(\tau_{j,M-2} - \mu_j), & m = M-1
+\end{cases}
+$$
+
+where $\Phi$ is the standard normal CDF. The contribution to the loss is $-\log P(x_j \mid x)$.
+
+Thresholds are estimated from the **pooled training data** (both classes) via the empirical CDF and normal quantiles, then **shared** across class-0 and class-1 models.
+
+**Code:** `composite.py` → `_ordinal_neglogprob_one()`, `_ordinal_loss_one()`, `_estimate_thresholds_and_cats()`; shared thresholds passed in `GeometryFisherClassifier.fit()`.
+
+#### Per-observation composite loss
+
+$$
+\ell(x; \theta) = \ell_{\mathrm{cont}}(x; \theta) + \sum_{j \in \mathcal{O}} \ell_{\mathrm{ord},j}(x; \theta)
+$$
+
+**Code:** `composite.py` → `_total_loss_one()`.
+
+---
+
+### 3. Optimization
+
+For class $k$, with training samples $\{x_i\}_{i=1}^{n_k}$:
+
+$$
+Q_k(\theta) = \sum_{i=1}^{n_k} \ell(x_i; \theta) + \lambda \|\theta\|_2^2
+$$
+
+Optimization uses **Adam** (Optax) on the free parameters $\theta$ with early stopping. Only masked entries of $W$ are updated.
+
+**Code:** `composite.py` → `CompositeLikelihoodModel.fit()` (`class_objective_theta`, `optax.adam`).
+
+Default hyperparameters: `lambda_reg=0.01`, `learning_rate=0.01`, `max_iter=800` (class 1 uses 600 in the pipeline).
+
+---
+
+### 4. Score gradients (Fisher directions)
+
+At the fitted $\hat\theta_k$, the per-observation score vector is:
+
+$$
+g_k(x) = \nabla_\theta \,\ell(x; \hat\theta_k) \in \mathbb{R}^d
+$$
+
+These are the **generalized Fisher score features** before whitening.
+
+**Code:** `composite.py` → `per_observation_gradient()` (JAX `grad` + `vmap`).
+
+---
+
+### 5. Sensitivity matrix $H$ (curvature)
+
+The **sensitivity** (expected Hessian of the composite objective) is approximated by the Hessian of the regularized empirical objective at $\hat\theta_k$:
+
+$$
+H_k = \nabla^2_\theta Q_k(\hat\theta_k)
+$$
+
+In practice this is computed by automatic differentiation on the same objective used for fitting.
+
+**Code:** `composite.py` → `objective_hessian()` (JAX `hessian`).
+
+---
+
+### 6. Variability matrix $J$
+
+The **variability** (outer product of scores) is the empirical second moment of per-observation gradients:
+
+$$
+J_k = \frac{1}{n_k} \sum_{i=1}^{n_k} g_k(x_i)\, g_k(x_i)^\top = \frac{1}{n_k}\, G_k^\top G_k
+$$
+
+where $G_k \in \mathbb{R}^{n_k \times d}$ stacks score rows.
+
+Optional **Ledoit–Wolf shrinkage** toward a scaled identity can be applied to $J_k$ (`shrink_j=True`).
+
+**Code:** `geometry.py` → `GodambeGeometry.fit()` computes `J_`; shrinkage in `ledoit_wolf_shrinkage()`.
+
+---
+
+### 7. Godambe sandwich geometry and whitening
+
+The **Godambe information matrix** (sandwich form):
+
+$$
+\mathcal{G}_k = H_k^{-1}\, J_k\, H_k^{-1}
+$$
+
+Implementation uses a ridge-regularized inverse:
+
+$$
+H_k^{\mathrm{reg}} = H_k + \gamma I, \quad \mathcal{G}_k = \bigl(H_k^{\mathrm{reg}}\bigr)^{-1} J_k \bigl(H_k^{\mathrm{reg}}\bigr)^{-1}
+$$
+
+with default $\gamma = 10^{-3}$ (`ridge_gamma`).
+
+A matrix square root $A_k$ is obtained via eigendecomposition (clipped to PSD):
+
+$$
+A_k = \mathcal{G}_k^{1/2}, \qquad \tilde g_k(x) = A_k\, g_k(x)^\top \text{ (implemented as } g_k(x)\, A_k^\top\text{)}
+$$
+
+**Code:** `geometry.py` → `GodambeGeometry` (`fit()`, `transform()`), helpers `stable_symmetrize()`, `psd_sqrt()`.
+
+---
+
+### 8. Feature map $\Phi(x)$
+
+Two feature modes:
+
+| `feature_type` | Definition |
+|----------------|------------|
+| `"raw"` | $\Phi(x) = \bigl[g_0(x)^\top,\; g_1(x)^\top\bigr]^\top$ |
+| `"godambe"` | $\Phi(x) = \bigl[(A_0 g_0(x))^\top,\; (A_1 g_1(x))^\top\bigr]^\top$ |
+
+**Code:** `features.py` → `build_feature_matrix()`; called from `pipeline.py` → `_build_phi()`.
+
+---
+
+### 9. Classification
+
+Logistic regression on $\Phi(x)$:
+
+$$
+P(y=1 \mid x) = \sigma\bigl(w^\top \Phi(x) + b\bigr)
+$$
+
+Features are optionally standardized before logistic regression (`scale_phi=True`, default).
+
+**Code:** `pipeline.py` → `GeometryFisherClassifier.fit()` uses `sklearn.linear_model.LogisticRegression` inside a `StandardScaler` pipeline.
+
+---
+
+## End-to-end algorithm (code path)
+
+```
+GeometryFisherClassifier.fit(X, y, ...)
+│
+├─ StandardScaler on continuous columns          pipeline.py
+├─ Resolve structural mask M                     pipeline.py → structure.py
+├─ Estimate shared ordinal thresholds            composite.py
+│
+├─ CompositeLikelihoodModel.fit(X[y==0], ...)    composite.py  → θ̂₀
+├─ CompositeLikelihoodModel.fit(X[y==1], ...)    composite.py  → θ̂₁
+│
+├─ g₀(x), g₁(x) for all training x               composite.py  → per_observation_gradient
+├─ H₀, H₁ from class objectives                  composite.py  → objective_hessian
+├─ J₀, J₁ from stacked scores                  geometry.py   → GodambeGeometry.fit
+├─ A₀, A₁ from sandwich G                        geometry.py   → psd_sqrt
+│
+├─ Φ(x) = build_feature_matrix(...)              features.py
+└─ LogisticRegression.fit(Φ, y)                  pipeline.py
+```
+
+---
+
+## Cross-validation protocol
+
+5-fold stratified CV (`random_state=42`). In each fold:
+
+1. Scale continuous features on the **training fold** only.
+2. Estimate ordinal thresholds from **pooled training rows** (both classes).
+3. Fit class-0 and class-1 composite models under the same mask.
+4. Build Godambe geometry and features on the training fold.
+5. Fit logistic regression; evaluate on the held-out fold.
+
+For Experiment 2, the mask is discovered **once on the full dataset** (`discover_mask_on="full_data"`) and reused in every fold.
+
+**Code:** `cross_validation.py` → `CrossValidationExperiment`.
+
+---
 
 ## Dataset
 
-Nine variables from the UCI Heart Disease file (5 continuous, 4 ordinal). After removing missing values across all four centers: **531 patients** (207 / 324). Data file: `data/heart_disease_uci.csv`.
+Nine variables from the UCI Heart Disease file (5 continuous, 4 ordinal). After removing missing values across all four centers: **531 patients** (207 / 324).
+
+| Type | Variables |
+|------|-----------|
+| Continuous | `age`, `trestbps`, `chol`, `thalch`, `oldpeak` |
+| Ordinal | `sex`, `fbs`, `exang`, `slope` |
+
+**Code:** `data/heart_disease_uci.csv`, `data.py` → `load_heart_disease()`.
+
+---
 
 ## Installation
 
@@ -23,11 +287,15 @@ pip install -e .
 pip install -e ".[baselines]"   # optional: XGBoost
 ```
 
-## Results
+---
 
-All tables use **531 samples**, **5-fold stratified CV**, and `random_state=42`. Committed copies live under `docs/results/`.
+## Experiments
 
-### Experiment 1 — hand-specified mask
+All tables: **531 samples**, **5-fold stratified CV**, `random_state=42`. Committed results: `docs/results/`.
+
+### Experiment 1 — hand-specified mask (56 parameters)
+
+Compares baselines, raw gradient features, and Godambe whitening under a domain-knowledge mask.
 
 | Method | Accuracy | Macro-F1 | ROC-AUC |
 |--------|----------|----------|---------|
@@ -37,13 +305,11 @@ All tables use **531 samples**, **5-fold stratified CV**, and `random_state=42`.
 | Raw gradient features | 0.774 ± 0.026 | 0.760 ± 0.030 | 0.812 ± 0.038 |
 | **Godambe whitening** | **0.770 ± 0.018** | **0.757 ± 0.023** | **0.811 ± 0.041** |
 
-Source: [`docs/results/experiment1_results.csv`](docs/results/experiment1_results.csv)
-
-Reproduce:
-
 ```bash
 python examples/run_experiments.py
 ```
+
+Source: [`docs/results/experiment1_results.csv`](docs/results/experiment1_results.csv)
 
 ### Experiment 2 — data-driven masks (Godambe whitening)
 
@@ -52,111 +318,19 @@ python examples/run_experiments.py
 | PC algorithm (single run) | 0.782 ± 0.028 | 0.767 ± 0.031 | 0.846 ± 0.036 | 15 |
 | PC stability selection | 0.793 ± 0.030 | 0.779 ± 0.034 | 0.849 ± 0.032 | 12 |
 
-For Experiment 2, each mask is discovered **once on the full dataset** and held fixed across all CV folds. PC uses causal-learn with Fisher-Z (`α=0.05`), correct CPDAG encoding, all columns z-scored, then incoming edges to `age` and `sex` are blocked. Optional `forbidden_edges` remove additional edges after discovery.
-
-Source: [`docs/results/experiment2_results.csv`](docs/results/experiment2_results.csv)
-
-Reproduce:
+PC: Fisher-Z test, $\alpha=0.05$, all columns z-scored, incoming edges to `age`/`sex` blocked. Stability: $B=50$, $\tau=0.6$.
 
 ```bash
 python examples/run_experiment2.py
 ```
 
-Stability selection uses `B=50` bootstrap resamples by default and is slower than the single PC run.
+Source: [`docs/results/experiment2_results.csv`](docs/results/experiment2_results.csv)
 
-## Cross-validation
+---
 
-In each fold:
+## Usage
 
-1. Estimate ordinal thresholds from pooled training data (shared by class 0 and class 1).
-2. Fit class-specific composite models under the same mask.
-3. Build features, fit logistic regression on the training fold, evaluate on the test fold.
-
-For Experiment 2, the structural mask is discovered **once on the full dataset** and reused in every CV fold.
-
-## Structural masks
-
-**Hand-specified mask (Experiment 1):** set `mask="hand"` and pass a `StructuralMask` with domain constraints (age and sex exogenous).
-
-**Single PC run (Experiment 2):** set `mask="pc"`.
-
-```python
-clf = GeometryFisherClassifier(
-    mask="pc",
-    mask_params={
-        "alpha": 0.05,
-        "exogenous": ["age", "sex"],
-        "forbidden_edges": [("chol", "slope")],  # optional post-discovery curation
-    },
-    feature_type="godambe",
-)
-```
-
-**PC stability selection (Experiment 2):** set `mask="stability"`.
-
-```python
-clf = GeometryFisherClassifier(
-    mask="stability",
-    mask_params={
-        "alpha": 0.05,
-        "tau_stab": 0.6,
-        "B": 50,
-        "exogenous": ["age", "sex"],
-        "forbidden_edges": [("chol", "slope")],
-    },
-    feature_type="godambe",
-)
-```
-
-You can also build and curate masks directly:
-
-```python
-mask = StructuralMask.from_pc_algorithm(
-    X, variable_names, alpha=0.05, exogenous=["age", "sex"]
-)
-mask = mask.block_edges([("chol", "slope"), ("thalch", "fbs")])
-
-mask = StructuralMask.from_stability_selection(
-    X, variable_names, B=50, exogenous=["age", "sex"]
-).block_edges([("chol", "slope")])
-```
-
-Each ``(target, source)`` tuple removes one directed edge: **source → target**.
-``exogenous`` is shorthand for blocking every incoming edge to a variable.
-
-## Visualizations
-
-```bash
-python examples/plot_dependencies.py
-```
-
-Figures are saved under `docs/figures/`.
-
-**Experiment 1 — hand mask and fitted class dependencies**
-
-| Hand mask | Class dependencies | Difference |
-|:---:|:---:|:---:|
-| ![Hand mask](docs/figures/mask_hand.png) | ![Class dependencies](docs/figures/class_dependencies.png) | ![Difference heatmap](docs/figures/difference_heatmap.png) |
-
-**Experiment 2 — data-driven masks (full dataset, α=0.05, age/sex exogenous)**
-
-| PC algorithm | PC stability selection |
-|:---:|:---:|
-| ![PC mask](docs/figures/mask_pc.png) | ![Stability mask](docs/figures/mask_stability.png) |
-
-Directed graphs show **source → target** arrows. Gold nodes are exogenous (`age`, `sex`). Dashed red arrows are edges removed after discovery by domain rules.
-
-| PC discovered vs curated | Stability discovered vs curated |
-|:---:|:---:|
-| ![PC curation](docs/figures/structure_pc_curation.png) | ![Stability curation](docs/figures/structure_stability_curation.png) |
-
-Final curated graphs:
-
-| PC structure | Stability structure |
-|:---:|:---:|
-| ![PC graph](docs/figures/structure_pc_graph.png) | ![Stability graph](docs/figures/structure_stability_graph.png) |
-
-## Example
+### Minimal example
 
 ```python
 from geometry_fisher import GeometryFisherClassifier, StructuralMask, load_heart_disease
@@ -175,16 +349,88 @@ clf = GeometryFisherClassifier(
 clf.fit(X, y, cont_idx, ord_idx, names)
 ```
 
-## Module overview
+### Data-driven mask (Experiment 2)
+
+```python
+clf = GeometryFisherClassifier(
+    mask="pc",
+    mask_params={
+        "alpha": 0.05,
+        "exogenous": ["age", "sex"],
+        "forbidden_edges": [("chol", "slope")],
+    },
+    feature_type="godambe",
+)
+```
+
+```python
+clf = GeometryFisherClassifier(
+    mask="stability",
+    mask_params={"alpha": 0.05, "tau_stab": 0.6, "B": 50, "exogenous": ["age", "sex"]},
+    feature_type="godambe",
+)
+```
+
+### Cross-validation
+
+```python
+from geometry_fisher.cross_validation import CrossValidationExperiment
+
+experiment = CrossValidationExperiment(
+    mask="pc",
+    mask_params={"alpha": 0.05, "exogenous": ["age", "sex"]},
+    discover_mask_on="full_data",
+    feature_type="godambe",
+)
+result = experiment.run(X, y, continuous_idx=cont_idx, ordinal_idx=ord_idx, variable_names=names)
+print(result.mean_accuracy, result.mean_auc)
+```
+
+---
+
+## Visualizations
+
+```bash
+python examples/plot_dependencies.py
+```
+
+Figures are saved to `docs/figures/`. Open `docs/figures/experiment2_gallery.html` in a browser for a local gallery of Experiment 2 structure plots.
+
+**Experiment 1 — hand mask and fitted class dependencies**
+
+| Hand mask | Class dependencies | Difference |
+|:---:|:---:|:---:|
+| ![Hand mask](docs/figures/mask_hand.png) | ![Class dependencies](docs/figures/class_dependencies.png) | ![Difference heatmap](docs/figures/difference_heatmap.png) |
+
+**Experiment 2 — data-driven masks**
+
+| PC algorithm | PC stability selection |
+|:---:|:---:|
+| ![PC mask](docs/figures/mask_pc.png) | ![Stability mask](docs/figures/mask_stability.png) |
+
+| PC discovered vs curated | Stability discovered vs curated |
+|:---:|:---:|
+| ![PC curation](docs/figures/structure_pc_curation.png) | ![Stability curation](docs/figures/structure_stability_curation.png) |
+
+| PC structure | Stability structure |
+|:---:|:---:|
+| ![PC graph](docs/figures/structure_pc_graph.png) | ![Stability graph](docs/figures/structure_stability_graph.png) |
+
+Directed graphs: **source → target** arrows. Gold nodes = exogenous (`age`, `sex`). Red dashed = edges removed by domain rules.
+
+---
+
+## Module reference
 
 | Module | Role |
 |--------|------|
-| `composite.py` | Class-specific composite likelihood |
-| `geometry.py` | Godambe sandwich whitening |
-| `features.py` | Feature map Φ(x): `raw` or `godambe` |
-| `pipeline.py` | `GeometryFisherClassifier` |
+| `structure.py` | Structural mask $M$; PC and stability selection; edge blocking |
+| `composite.py` | Class-specific composite likelihood; optimization; gradients; Hessian |
+| `geometry.py` | Godambe sandwich $\mathcal{G} = H^{-1}JH^{-1}$; whitening matrix $A$ |
+| `features.py` | Feature map $\Phi(x)$: `raw` or `godambe` |
+| `pipeline.py` | `GeometryFisherClassifier` — full fit/predict pipeline |
 | `cross_validation.py` | Stratified k-fold evaluation |
-| `experiments.py` | Baseline + method comparison table |
-| `structure.py` | Hand-specified and data-driven masks |
-| `data.py` | Heart Disease loader |
-| `visualization.py` | Dependency heatmaps |
+| `experiments.py` | Baseline comparison tables |
+| `baselines.py` | Logistic regression, Random Forest, XGBoost |
+| `data.py` | Heart Disease data loader |
+| `visualization.py` | Mask heatmaps and directed structure graphs |
