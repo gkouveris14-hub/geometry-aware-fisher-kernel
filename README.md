@@ -26,6 +26,8 @@ Experiments use the UCI Heart Disease CSV with **9 selected variables** (5 conti
 
 The raw CSV contains 920 rows across four hospitals. After selecting the 9 study variables and dropping rows with missing values, the **default loader keeps all centers (531 patients)**, matching `Last_hope.ipynb`.
 
+The dataset file used in the thesis is bundled at `data/heart_disease_uci.csv` (UCI Heart Disease, four-center version).
+
 ## Installation
 
 ```bash
@@ -50,7 +52,7 @@ from geometry_fisher.data import load_heart_disease
 from geometry_fisher.structure import StructuralMask
 from geometry_fisher.pipeline import GeometryFisherClassifier
 
-X, y, names, cont_idx, ord_idx = load_heart_disease("path/to/heart_disease_uci.csv")
+X, y, names, cont_idx, ord_idx = load_heart_disease("data/heart_disease_uci.csv")
 
 mask = StructuralMask.from_domain_knowledge(names, exogenous=["age", "sex"])
 

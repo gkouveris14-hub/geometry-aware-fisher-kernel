@@ -2,5 +2,6 @@
 
 from pathlib import Path
 
-DATA_PATH = Path(r"C:\ΑΡΧΕΙΑ\UNIC\Thesis\heart_disease_uci.csv")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DATA_PATH = REPO_ROOT / "data" / "heart_disease_uci.csv"
 OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"

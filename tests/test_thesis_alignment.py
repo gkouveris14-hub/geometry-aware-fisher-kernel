@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from pathlib import Path
 
 from geometry_fisher.data import load_heart_disease
 from geometry_fisher.structure import StructuralMask
@@ -11,13 +12,14 @@ from geometry_fisher.composite import CompositeLikelihoodModel
 from geometry_fisher.geometry import GodambeGeometry, stable_symmetrize
 
 
-DATA_PATH = r"C:\ΑΡΧΕΙΑ\UNIC\Thesis\heart_disease_uci.csv"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DATA_PATH = REPO_ROOT / "data" / "heart_disease_uci.csv"
 
 
 @pytest.fixture(scope="module")
 def heart_data():
     return load_heart_disease(
-        path=DATA_PATH,
+        path=str(DATA_PATH),
         binary_target=True,
         verbose=False,
     )
