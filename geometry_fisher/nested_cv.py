@@ -45,7 +45,7 @@ class NestedCVExperiment:
     mask_params : dict
         Parameters for data-driven mask (alpha, tau_stab, B, exogenous...).
     feature_type : str
-        "linear", "quadratic", or "full".
+        "godambe" (proposed), "raw", "quadratic", or "full".
     outer_splits : int
         Number of outer folds (default 5).
     random_state : int
@@ -56,7 +56,7 @@ class NestedCVExperiment:
         mask: Union[str, StructuralMask] = "hand",
         mask_object: Optional[StructuralMask] = None,
         mask_params: Optional[Dict[str, Any]] = None,
-        feature_type: str = "linear",
+        feature_type: str = "godambe",
         lambda_reg: float = 0.01,
         ridge_gamma: float = 1e-3,
         shrink_j: bool = False,

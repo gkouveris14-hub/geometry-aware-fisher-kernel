@@ -6,7 +6,7 @@ Implementation of the method from:
 
 ## Method
 
-The published classifier (`feature_type="linear"`) performs:
+The published classifier (`feature_type="godambe"`) performs:
 
 1. Class-specific composite likelihood fitting under a structural mask
 2. Per-observation gradient features from both class models
@@ -14,6 +14,8 @@ The published classifier (`feature_type="linear"`) performs:
 4. StandardScaler on features + logistic regression
 
 Compare against `feature_type="raw"` for the internal ablation (unwhitened gradients).
+
+Legacy alias: `feature_type="linear"` is accepted but deprecated (maps to `"godambe"`).
 
 ## Dataset
 
@@ -75,7 +77,7 @@ mask = StructuralMask.from_domain_knowledge(names, exogenous=["age", "sex"])
 clf = GeometryFisherClassifier(
     mask="hand",
     mask_object=mask,
-    feature_type="linear",   # proposed Godambe method
+    feature_type="godambe",   # proposed Godambe-whitened gradients
     lambda_reg=0.01,
     ridge_gamma=1e-3,
     scale_phi=True,

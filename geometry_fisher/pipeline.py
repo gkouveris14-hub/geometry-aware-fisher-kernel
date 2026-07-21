@@ -15,7 +15,7 @@ from sklearn.pipeline import make_pipeline
 from .structure import StructuralMask
 from .composite import CompositeLikelihoodModel
 from .geometry import GodambeGeometry
-from .features import build_feature_matrix, requires_geometry
+from .features import build_feature_matrix, normalize_feature_type, requires_geometry
 
 
 class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
@@ -29,7 +29,7 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
         lambda_reg: float = 0.01,
         ridge_gamma: float = 1e-3,
         shrink_j: bool = False,
-        feature_type: str = "linear",
+        feature_type: str = "godambe",
         C: float = 1.0,
         max_iter: int = 1000,
         scale_phi: bool = True,
@@ -41,7 +41,7 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
         self.lambda_reg = lambda_reg
         self.ridge_gamma = ridge_gamma
         self.shrink_j = shrink_j
-        self.feature_type = feature_type
+        self.feature_type = normalize_feature_type(feature_type)
         self.C = C
         self.max_iter = max_iter
         self.scale_phi = scale_phi

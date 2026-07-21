@@ -55,7 +55,7 @@ clf = GeometryFisherClassifier(
     mask_object=mask,
     lambda_reg=0.01,
     ridge_gamma=1e-3,
-    feature_type="linear",
+    feature_type="godambe",
     C=1.0,
 )
 

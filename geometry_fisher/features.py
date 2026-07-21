@@ -2,16 +2,36 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 from dataclasses import dataclass
 
 from .geometry import GodambeGeometry
 
-FEATURE_TYPES = ("raw", "fisher_only", "linear", "quadratic", "full")
+FEATURE_TYPES = ("raw", "fisher_only", "godambe", "quadratic", "full")
+FEATURE_TYPE_ALIASES = {"linear": "godambe"}
+
+
+def normalize_feature_type(feature_type: str) -> str:
+    """Return the canonical feature type, accepting legacy aliases."""
+    canonical = FEATURE_TYPE_ALIASES.get(feature_type, feature_type)
+    if feature_type in FEATURE_TYPE_ALIASES:
+        warnings.warn(
+            f"feature_type='{feature_type}' is deprecated; use 'godambe' instead.",
+            FutureWarning,
+            stacklevel=3,
+        )
+    if canonical not in FEATURE_TYPES:
+        accepted = ", ".join(FEATURE_TYPES + tuple(FEATURE_TYPE_ALIASES))
+        raise ValueError(
+            f"Unknown feature_type: '{feature_type}'. Choose from: {accepted}"
+        )
+    return canonical
 
 
 def requires_geometry(feature_type: str) -> bool:
-    return feature_type != "raw"
+    return normalize_feature_type(feature_type) != "raw"
 
 
 def _safe_whiten(gradients: np.ndarray, matrix: np.ndarray) -> np.ndarray:
@@ -25,7 +45,7 @@ def _safe_whiten(gradients: np.ndarray, matrix: np.ndarray) -> np.ndarray:
 class FisherFeatures:
     raw: np.ndarray
     fisher_only: np.ndarray
-    linear: np.ndarray
+    godambe: np.ndarray
     quadratic: np.ndarray
     full: np.ndarray
 
@@ -48,17 +68,17 @@ def build_features(
 
     g_tilde_0 = geometry_0.transform(gradients_0)
     g_tilde_1 = geometry_1.transform(gradients_1)
-    phi_linear = np.hstack([g_tilde_0, g_tilde_1])
+    phi_godambe = np.hstack([g_tilde_0, g_tilde_1])
 
     q0 = geometry_0.quadratic_form(gradients_0)
     q1 = geometry_1.quadratic_form(gradients_1)
     phi_quadratic = np.column_stack([q0, q1, q1 - q0])
-    phi_full = np.hstack([phi_linear, phi_quadratic])
+    phi_full = np.hstack([phi_godambe, phi_quadratic])
 
     return FisherFeatures(
         raw=phi_raw,
         fisher_only=phi_fisher_only,
-        linear=phi_linear,
+        godambe=phi_godambe,
         quadratic=phi_quadratic,
         full=phi_full,
     )
@@ -72,19 +92,15 @@ def build_feature_matrix(
     geometry_1: GodambeGeometry | None = None,
 ) -> np.ndarray:
     """Build the feature matrix for a single requested feature type."""
-    if feature_type not in FEATURE_TYPES:
-        raise ValueError(
-            f"Unknown feature_type: '{feature_type}'. "
-            f"Choose from: {', '.join(FEATURE_TYPES)}"
-        )
+    canonical = normalize_feature_type(feature_type)
 
-    if feature_type == "raw":
+    if canonical == "raw":
         return np.hstack([gradients_0, gradients_1])
 
     if geometry_0 is None or geometry_1 is None:
         raise ValueError(
-            f"Godambe geometry is required for feature_type='{feature_type}'."
+            f"Godambe geometry is required for feature_type='{canonical}'."
         )
 
     features = build_features(gradients_0, gradients_1, geometry_0, geometry_1)
-    return getattr(features, feature_type)
+    return getattr(features, canonical)

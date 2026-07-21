@@ -17,7 +17,7 @@ clf = GeometryFisherClassifier(
         "B": 20,               # small for quick test
         "exogenous": ["a"]
     },
-    feature_type="linear"
+    feature_type="godambe"
 )
 
 clf.fit(

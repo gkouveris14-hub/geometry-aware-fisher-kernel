@@ -34,7 +34,7 @@ print("\nStarting Nested Cross-Validation...")
 experiment = NestedCVExperiment(
     mask="hand",
     mask_object=mask,
-    feature_type="linear",
+    feature_type="godambe",
     lambda_reg=0.01,
     ridge_gamma=1e-3,
     outer_splits=5,

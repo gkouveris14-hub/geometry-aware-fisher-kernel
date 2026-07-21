@@ -25,7 +25,7 @@ mask = StructuralMask.from_domain_knowledge(
 experiment = NestedCVExperiment(
     mask="hand",
     mask_object=mask,
-    feature_type="linear",
+    feature_type="godambe",
     outer_splits=3,          # small number for quick test
     random_state=42,
 )

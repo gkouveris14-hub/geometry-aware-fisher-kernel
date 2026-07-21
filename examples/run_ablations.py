@@ -18,7 +18,7 @@ from config import DATA_PATH, OUTPUT_DIR
 VARIANTS = [
     ("A", "raw", "Concatenated raw gradients"),
     ("B", "fisher_only", "Whitened with J^{-1/2} only"),
-    ("C", "linear", "Full Godambe linear whitening"),
+    ("C", "godambe", "Full Godambe sandwich whitening"),
     ("D", "quadratic", "Mahalanobis quadratic scores"),
     ("E", "full", "Linear Godambe + quadratic scores"),
 ]

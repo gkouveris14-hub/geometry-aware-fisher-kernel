@@ -79,7 +79,7 @@ def main() -> None:
     print("DIAGNOSTIC 1: Effect of StandardScaler on Phi")
     print("=" * 78)
 
-    for feature_type, label in [("raw", "Raw gradients"), ("linear", "Godambe")]:
+    for feature_type, label in [("raw", "Raw gradients"), ("godambe", "Godambe")]:
         for scale_phi in [True, False]:
             scaler_label = "with Phi scaler" if scale_phi else "no Phi scaler"
             print(f"Running {label} ({scaler_label})...")
@@ -121,7 +121,7 @@ def main() -> None:
                 continuous_idx=continuous_idx,
                 ordinal_idx=ordinal_idx,
                 variable_names=variable_names,
-                feature_type="linear",
+                feature_type="godambe",
                 scale_phi=scale_phi,
                 ridge_gamma=ridge_gamma,
             )

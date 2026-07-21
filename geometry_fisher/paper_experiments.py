@@ -4,7 +4,7 @@ Paper-ready experiment table: baselines vs raw gradients vs Godambe (proposed).
 Protocol (Heart Disease, 531 complete cases, all centers, 5-fold stratified CV, random_state=42):
 - External baselines: Logistic Regression, Random Forest, XGBoost
 - Internal ablation: unwhitened gradient features (raw)
-- Proposed method: Godambe-whitened gradient features (linear)
+- Proposed method: Godambe-whitened gradient features (godambe)
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ PAPER_METHODS: List[PaperMethod] = [
     PaperMethod("Random Forest", "baseline"),
     PaperMethod("XGBoost", "baseline"),
     PaperMethod("Raw gradients", "ablation", "raw"),
-    PaperMethod("Godambe (proposed)", "proposed", "linear"),
+    PaperMethod("Godambe (proposed)", "proposed", "godambe"),
 ]
 
 
