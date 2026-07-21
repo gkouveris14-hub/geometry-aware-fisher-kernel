@@ -42,7 +42,7 @@ data → mask M → fit θ₀, θ₁ → gradients g₀(x), g₁(x) → Godambe 
 Masked linear predictor for variable $i$:
 
 $$
-\mu_i(x) = \sum_{j=1}^{p} M_{ij}\, W_{ij}\, x_j = \bigl[(W \odot M)\, x\bigr]_i
+\mu_i(x) = \sum_{j=1}^{p} M_{ij} \cdot W_{ij} \cdot x_j = \bigl[(W \odot M) \cdot x\bigr]_i
 $$
 
 **Code:** `composite.py` → `_compute_mu()`, mask applied in `CompositeLikelihoodModel.fit()`.
@@ -134,7 +134,7 @@ Default hyperparameters: `lambda_reg=0.01`, `learning_rate=0.01`, `max_iter=800`
 At the fitted $\hat\theta_k$, the per-observation score vector is:
 
 $$
-g_k(x) = \nabla_\theta \,\ell(x; \hat\theta_k) \in \mathbb{R}^d
+g_k(x) = \nabla_\theta \ell(x; \hat\theta_k) \in \mathbb{R}^d
 $$
 
 These are the **generalized Fisher score features** before whitening.
@@ -162,7 +162,7 @@ In practice this is computed by automatic differentiation on the same objective 
 The **variability** (outer product of scores) is the empirical second moment of per-observation gradients:
 
 $$
-J_k = \frac{1}{n_k} \sum_{i=1}^{n_k} g_k(x_i)\, g_k(x_i)^\top = \frac{1}{n_k}\, G_k^\top G_k
+J_k = \frac{1}{n_k} \sum_{i=1}^{n_k} g_k(x_i) g_k(x_i)^\top = \frac{1}{n_k} G_k^\top G_k
 $$
 
 where $G_k \in \mathbb{R}^{n_k \times d}$ stacks score rows.
@@ -178,13 +178,13 @@ Optional **Ledoit–Wolf shrinkage** toward a scaled identity can be applied to 
 The **Godambe information matrix** (sandwich form):
 
 $$
-\mathcal{G}_k = H_k^{-1}\, J_k\, H_k^{-1}
+\mathcal{G}_k = H_k^{-1} \cdot J_k \cdot H_k^{-1}
 $$
 
 Implementation uses a ridge-regularized inverse:
 
 $$
-H_k^{\mathrm{reg}} = H_k + \gamma I, \quad \mathcal{G}_k = \bigl(H_k^{\mathrm{reg}}\bigr)^{-1} J_k \bigl(H_k^{\mathrm{reg}}\bigr)^{-1}
+H_k^{\mathrm{reg}} = H_k + \gamma I, \quad \mathcal{G}_k = \bigl(H_k^{\mathrm{reg}}\bigr)^{-1} \cdot J_k \cdot \bigl(H_k^{\mathrm{reg}}\bigr)^{-1}
 $$
 
 with default $\gamma = 10^{-3}$ (`ridge_gamma`).
@@ -192,7 +192,7 @@ with default $\gamma = 10^{-3}$ (`ridge_gamma`).
 A matrix square root $A_k$ is obtained via eigendecomposition (clipped to PSD):
 
 $$
-A_k = \mathcal{G}_k^{1/2}, \qquad \tilde g_k(x) = A_k\, g_k(x)^\top \text{ (implemented as } g_k(x)\, A_k^\top\text{)}
+A_k = \mathcal{G}_k^{1/2}, \qquad \tilde g_k(x) = A_k \cdot g_k(x)^\top \quad \text{(implemented as } g_k(x) \cdot A_k^\top\text{)}
 $$
 
 **Code:** `geometry.py` → `GodambeGeometry` (`fit()`, `transform()`), helpers `stable_symmetrize()`, `psd_sqrt()`.
@@ -205,8 +205,8 @@ Two feature modes:
 
 | `feature_type` | Definition |
 |----------------|------------|
-| `"raw"` | $\Phi(x) = \bigl[g_0(x)^\top,\; g_1(x)^\top\bigr]^\top$ |
-| `"godambe"` | $\Phi(x) = \bigl[(A_0 g_0(x))^\top,\; (A_1 g_1(x))^\top\bigr]^\top$ |
+| `"raw"` | $\Phi(x) = \begin{bmatrix} g_0(x) \\ g_1(x) \end{bmatrix}$ |
+| `"godambe"` | $\Phi(x) = \begin{bmatrix} A_0 \cdot g_0(x) \\ A_1 \cdot g_1(x) \end{bmatrix}$ |
 
 **Code:** `features.py` → `build_feature_matrix()`; called from `pipeline.py` → `_build_phi()`.
 
