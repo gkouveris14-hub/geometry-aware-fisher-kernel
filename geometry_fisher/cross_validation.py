@@ -1,8 +1,5 @@
 """
-K-fold cross-validation for the Geometry-Aware Fisher Kernel.
-
-Each fold fits a fresh classifier on the training split (with shared ordinal
-thresholds within that fit) and evaluates on the held-out test split.
+K-fold cross-validation for the geometry-aware classifier.
 """
 
 from __future__ import annotations
@@ -47,7 +44,7 @@ class CrossValidationExperiment:
     mask_params : dict
         Parameters for data-driven mask (alpha, tau_stab, B, exogenous...).
     feature_type : str
-        "godambe" (proposed) or "raw" (ablation).
+        ``godambe`` (thesis method) or ``raw`` (unwhitened gradients).
     outer_splits : int
         Number of CV folds (default 5).
     random_state : int

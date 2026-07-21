@@ -1,10 +1,7 @@
 """
-Paper-ready experiment table: baselines vs raw gradients vs Godambe (proposed).
+Heart Disease experiment table: baselines and geometry-aware classifiers.
 
-Protocol (Heart Disease, 531 complete cases, all centers, 5-fold stratified CV, random_state=42):
-- External baselines: Logistic Regression, Random Forest, XGBoost
-- Internal ablation: unwhitened gradient features (raw)
-- Proposed method: Godambe-whitened gradient features (godambe)
+Protocol: 531 samples, 5-fold stratified CV, random_state=42, hand-specified mask.
 """
 
 from __future__ import annotations
@@ -16,30 +13,30 @@ from typing import List, Optional
 import pandas as pd
 
 from .baselines import run_baseline_cv
-from .data import load_heart_disease
 from .cross_validation import CrossValidationExperiment
+from .data import load_heart_disease
 from .structure import StructuralMask
 
 
 @dataclass(frozen=True)
-class PaperMethod:
+class MethodSpec:
     name: str
-    category: str
+    group: str
     feature_type: Optional[str] = None
 
 
-PAPER_METHODS: List[PaperMethod] = [
-    PaperMethod("Logistic Regression", "baseline"),
-    PaperMethod("Random Forest", "baseline"),
-    PaperMethod("XGBoost", "baseline"),
-    PaperMethod("Raw gradients", "ablation", "raw"),
-    PaperMethod("Godambe (proposed)", "proposed", "godambe"),
+METHODS: List[MethodSpec] = [
+    MethodSpec("Logistic Regression", "baseline"),
+    MethodSpec("Random Forest", "baseline"),
+    MethodSpec("XGBoost", "baseline"),
+    MethodSpec("Raw gradient features", "comparison", "raw"),
+    MethodSpec("Godambe whitening", "method", "godambe"),
 ]
 
 
 def _summary_row(
     name: str,
-    category: str,
+    group: str,
     mean_accuracy: float,
     std_accuracy: float,
     mean_macro_f1: float,
@@ -49,7 +46,7 @@ def _summary_row(
 ) -> dict:
     return {
         "Method": name,
-        "Category": category,
+        "Group": group,
         "Accuracy": f"{mean_accuracy:.3f} ± {std_accuracy:.3f}",
         "Macro-F1": f"{mean_macro_f1:.3f} ± {std_macro_f1:.3f}",
         "ROC-AUC": f"{mean_auc:.3f} ± {std_auc:.3f}",
@@ -62,7 +59,7 @@ def _summary_row(
     }
 
 
-def run_paper_experiments(
+def run_experiments(
     data_path: str,
     *,
     outer_splits: int = 5,
@@ -87,10 +84,10 @@ def run_paper_experiments(
 
     if verbose:
         print("=" * 78)
-        print(f"PAPER EXPERIMENTS — Heart Disease ({n_samples} samples, 5-fold CV)")
+        print(f"Heart Disease experiments ({n_samples} samples, 5-fold CV)")
         print("=" * 78)
         print(f"Hand-specified mask: {mask}\n")
-        print(">>> External baselines\n")
+        print("Baselines\n")
 
     baseline_result = run_baseline_cv(
         X,
@@ -102,8 +99,8 @@ def run_paper_experiments(
     )
 
     baseline_by_name = {s.model: s for s in baseline_result.summaries}
-    for method in PAPER_METHODS:
-        if method.category != "baseline":
+    for method in METHODS:
+        if method.group != "baseline":
             continue
         if method.name not in baseline_by_name:
             if method.name == "XGBoost":
@@ -114,7 +111,7 @@ def run_paper_experiments(
         rows.append(
             _summary_row(
                 method.name,
-                method.category,
+                method.group,
                 summary.mean_accuracy,
                 summary.std_accuracy,
                 summary.mean_macro_f1,
@@ -124,13 +121,12 @@ def run_paper_experiments(
             )
         )
 
-    for method in PAPER_METHODS:
+    for method in METHODS:
         if method.feature_type is None:
             continue
 
         if verbose:
-            label = "proposed method" if method.category == "proposed" else "internal ablation"
-            print(f"\n>>> {method.name} ({label})\n")
+            print(f"\n{method.name}\n")
 
         experiment = CrossValidationExperiment(
             mask="hand",
@@ -155,7 +151,7 @@ def run_paper_experiments(
         rows.append(
             _summary_row(
                 method.name,
-                method.category,
+                method.group,
                 result.mean_accuracy,
                 result.std_accuracy,
                 result.mean_macro_f1,
@@ -168,9 +164,9 @@ def run_paper_experiments(
     table = pd.DataFrame(rows)
 
     if verbose:
-        display_cols = ["Method", "Category", "Accuracy", "Macro-F1", "ROC-AUC"]
+        display_cols = ["Method", "Group", "Accuracy", "Macro-F1", "ROC-AUC"]
         print("\n" + "=" * 78)
-        print("PAPER TABLE (copy into manuscript)")
+        print("Results")
         print("=" * 78)
         print(table[display_cols].to_string(index=False))
         print("=" * 78)
@@ -178,10 +174,10 @@ def run_paper_experiments(
     return table
 
 
-def save_paper_table(
+def save_results_table(
     table: pd.DataFrame,
     output_dir: Path,
-    stem: str = "paper_experiments",
+    stem: str = "results",
 ) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     csv_path = output_dir / f"{stem}.csv"

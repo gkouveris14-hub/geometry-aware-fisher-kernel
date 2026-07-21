@@ -1,10 +1,5 @@
 """
-Structural mask handling for the Geometry-Aware Fisher Kernel.
-
-Supports:
-- Hand-specified (domain knowledge) masks
-- Data-driven masks via stability selection + PC algorithm
-- Custom user-provided masks
+Structural masks for the composite likelihood models.
 """
 
 from __future__ import annotations
@@ -104,9 +99,7 @@ class StructuralMask:
         exogenous: Optional[Sequence[str]] = None,
         random_state: int = 42,
     ) -> "StructuralMask":
-        """
-        Build a mask using stability selection + PC algorithm.
-        """
+        """Build a mask from PC stability selection (Experiment 2 in the thesis)."""
         from causallearn.search.ConstraintBased.PC import pc
         from causallearn.utils.cit import fisherz
 

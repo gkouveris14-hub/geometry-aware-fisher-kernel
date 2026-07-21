@@ -1,4 +1,4 @@
-"""Verify implementation matches the thesis notebook protocol."""
+"""Checks that the code follows the thesis preprocessing and geometry definitions."""
 
 from __future__ import annotations
 

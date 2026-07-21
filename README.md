@@ -1,27 +1,18 @@
 # Geometry-Aware Generalized Fisher Kernel
 
-Implementation of the method from:
+Code for the MSc thesis:
 
-> Konstantinos Gkouveris, *A Geometry-Aware Generalized Fisher Kernel Framework for Binary Classification of Mixed-Type Data under Composite Likelihood*, MSc Thesis, University of Nicosia, 2026.
+> Konstantinos Gkouveris, *A Geometry-Aware Generalized Fisher Kernel Framework for Binary Classification of Mixed-Type Data under Composite Likelihood*, University of Nicosia, 2026.
 
 ## Method
 
-The published classifier (`feature_type="godambe"`) performs:
+For each class, the model fits a masked composite likelihood on mixed continuous and ordinal variables. Per-observation score gradients from both class models are concatenated and, when `feature_type="godambe"`, whitened using the Godambe sandwich metric built from the Hessian **H** and gradient second moment **J**. A logistic regression classifier is trained on the resulting features.
 
-1. Class-specific composite likelihood fitting under a structural mask
-2. Per-observation gradient features from both class models
-3. Godambe sandwich whitening using the Hessian (H) and score covariance (J)
-4. StandardScaler on features + logistic regression
-
-Compare against `feature_type="raw"` (unwhitened gradients, ablation baseline).
+Use `feature_type="raw"` for the unwhitened gradient baseline from the thesis.
 
 ## Dataset
 
-Experiments use the UCI Heart Disease CSV with **9 selected variables** (5 continuous + 4 ordinal).
-
-After selecting those variables and dropping rows with missing values, the thesis protocol yields **531 patients** (class balance **207 / 324**). The raw CSV contains 920 rows across four hospitals; the bundled file matches the preprocessing in `Last_hope.ipynb`.
-
-Bundled data: `data/heart_disease_uci.csv`
+Nine variables from the UCI Heart Disease file (5 continuous, 4 ordinal). After removing missing values across all four centers: **531 patients** (207 / 324). Data file: `data/heart_disease_uci.csv`.
 
 ## Installation
 
@@ -29,61 +20,65 @@ Bundled data: `data/heart_disease_uci.csv`
 git clone https://github.com/gkouveris14-hub/geometry-aware-fisher-kernel.git
 cd geometry-aware-fisher-kernel
 pip install -e .
-pip install -e ".[baselines]"   # optional: XGBoost baselines
+pip install -e ".[baselines]"   # optional: XGBoost
 ```
 
-## Reproduce paper experiments
+## Reproduce thesis results (Experiment 1)
+
+Hand-specified mask, 5-fold stratified CV (`random_state=42`):
 
 ```bash
-python examples/run_paper_experiments.py
+python examples/run_experiments.py
 ```
 
-This runs 5-fold CV on the 531-sample thesis protocol and writes `examples/outputs/paper_experiments.csv`.
+Writes `examples/outputs/results.csv`.
 
-## Cross-validation protocol
+## Cross-validation
 
-Evaluation uses **5-fold stratified CV** (`random_state=42`). In each fold:
+In each fold:
 
-1. Split into train / test (no test patients in fitting).
-2. **Estimate ordinal thresholds once** from the pooled **training** data (both classes combined).
-3. Fit class-0 and class-1 composite models using **the same shared thresholds**.
-4. Build gradient features, apply Godambe whitening (if `feature_type="godambe"`), fit logistic regression on train, evaluate on test.
+1. Estimate ordinal thresholds from pooled training data (shared by class 0 and class 1).
+2. Fit class-specific composite models under the same mask.
+3. Build features, fit logistic regression on the training fold, evaluate on the test fold.
 
-**Important:** within every fold, class 0 and class 1 use **identical** ordinal cutpoints for `sex`, `fbs`, `exang`, and `slope`. This keeps the two class-specific dependency matrices **W₀** and **W₁** in the same ordinal geometry, so their gradients and Godambe features are comparable.
+## Structural masks
 
-Thresholds are re-estimated per fold from that fold's training subset only (no test leakage). Dependency heatmaps in `plot_dependencies.py` fit on all 531 samples once, with the same shared-threshold rule.
+**Hand-specified mask (Experiment 1):** set `mask="hand"` and pass a `StructuralMask` with domain constraints (age and sex exogenous).
+
+**Data-driven mask (Experiment 2):** set `mask="data_driven"`; the loader runs PC stability selection via `StructuralMask.from_stability_selection()`.
+
+```python
+clf = GeometryFisherClassifier(
+    mask="data_driven",
+    mask_params={"alpha": 0.05, "tau_stab": 0.6, "B": 50, "exogenous": ["age", "sex"]},
+    feature_type="godambe",
+)
+```
 
 ## Visualizations
-
-Preview figures from the bundled Heart Disease run (531 samples, hand-specified mask):
-
-| Structural mask | Class-specific dependencies | Class difference |
-|:---:|:---:|:---:|
-| ![Structural mask](docs/figures/mask.png) | ![Class dependencies](docs/figures/class_dependencies.png) | ![Difference heatmap](docs/figures/difference_heatmap.png) |
-
-Regenerate locally:
 
 ```bash
 python examples/plot_dependencies.py
 ```
 
-Figures are written to `docs/figures/`. Pass `--show` to display them in a window after saving.
+Figures are saved under `docs/figures/` (structural mask, class-specific dependency matrices, and their difference).
 
-## Quick start
+| Structural mask | Class dependencies | Difference |
+|:---:|:---:|:---:|
+| ![Structural mask](docs/figures/mask.png) | ![Class dependencies](docs/figures/class_dependencies.png) | ![Difference heatmap](docs/figures/difference_heatmap.png) |
+
+## Example
 
 ```python
-from geometry_fisher.data import load_heart_disease
-from geometry_fisher.structure import StructuralMask
-from geometry_fisher.pipeline import GeometryFisherClassifier
+from geometry_fisher import GeometryFisherClassifier, StructuralMask, load_heart_disease
 
 X, y, names, cont_idx, ord_idx = load_heart_disease("data/heart_disease_uci.csv")
-
 mask = StructuralMask.from_domain_knowledge(names, exogenous=["age", "sex"])
 
 clf = GeometryFisherClassifier(
     mask="hand",
     mask_object=mask,
-    feature_type="godambe",   # proposed Godambe-whitened gradients
+    feature_type="godambe",
     lambda_reg=0.01,
     ridge_gamma=1e-3,
     scale_phi=True,
@@ -91,26 +86,19 @@ clf = GeometryFisherClassifier(
 clf.fit(X, y, cont_idx, ord_idx, names)
 ```
 
-## Package layout
+## Module overview
 
-```
-geometry_fisher/
-  composite.py          Composite likelihood (JAX)
-  geometry.py           Godambe sandwich whitening
-  features.py           Raw / Godambe feature construction
-  pipeline.py           GeometryFisherClassifier
-  cross_validation.py     Stratified k-fold CV runner
-  baselines.py            LR / RF / XGB baselines
-  paper_experiments.py    Manuscript results table
-  data.py                 Heart Disease loader
-  structure.py            Structural masks
-  visualization.py        Dependency heatmaps
-
-examples/
-  config.py
-  run_paper_experiments.py
-  plot_dependencies.py
-```
+| Module | Role |
+|--------|------|
+| `composite.py` | Class-specific composite likelihood |
+| `geometry.py` | Godambe sandwich whitening |
+| `features.py` | Feature map Φ(x): `raw` or `godambe` |
+| `pipeline.py` | `GeometryFisherClassifier` |
+| `cross_validation.py` | Stratified k-fold evaluation |
+| `experiments.py` | Baseline + method comparison table |
+| `structure.py` | Hand-specified and data-driven masks |
+| `data.py` | Heart Disease loader |
+| `visualization.py` | Dependency heatmaps |
 
 ## Tests
 

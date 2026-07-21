@@ -1,7 +1,7 @@
 """
 Fit a model on Heart Disease data and plot the dependency structures.
 
-Saves figures to docs/figures/ for README preview and local inspection.
+Saves figures to `docs/figures/`.
 """
 
 from __future__ import annotations

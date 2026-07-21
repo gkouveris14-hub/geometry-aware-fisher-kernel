@@ -1,5 +1,5 @@
 """
-Data loading utilities for the Geometry-Aware Fisher Kernel.
+Data loading for the UCI Heart Disease benchmark (thesis protocol).
 """
 
 from __future__ import annotations
@@ -12,19 +12,14 @@ from typing import Tuple, List
 def load_heart_disease(
     path: str,
     binary_target: bool = True,
-    only_cleveland: bool = False,
     verbose: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, List[str], np.ndarray, np.ndarray]:
     """
-    Load Heart Disease data with the 9-variable thesis selection.
+    Load the 9-variable Heart Disease dataset used in the thesis.
 
-    By default uses all centers (531 complete cases after dropna), matching
-    the MSc thesis notebook.
+    Uses all four centers (531 complete cases after dropna).
     """
     df = pd.read_csv(path)
-
-    if only_cleveland and "dataset" in df.columns:
-        df = df[df["dataset"] == "Cleveland"].copy()
 
     continuous_cols = ["age", "trestbps", "chol", "thalch", "oldpeak"]
     ordinal_cols = ["sex", "fbs", "exang", "slope"]
