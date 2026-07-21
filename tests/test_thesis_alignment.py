@@ -47,13 +47,6 @@ def test_hand_mask_has_56_parameters(heart_data):
     assert mask.n_params == 56
 
 
-def test_thesis_pc_reference_has_16_edges(heart_data):
-    _, _, variable_names, _, _ = heart_data
-    mask = StructuralMask.from_thesis_pc_reference(variable_names)
-    assert mask.n_params == 16
-    assert abs(mask.n_params / 81 - 0.198) < 0.001
-
-
 def test_godambe_uses_hessian_not_jacobian_covariance(heart_data):
     X, y, variable_names, continuous_idx, ordinal_idx = heart_data
     mask = StructuralMask.from_domain_knowledge(

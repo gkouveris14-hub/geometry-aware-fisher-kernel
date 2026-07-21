@@ -1,17 +1,17 @@
 [
   {
     "Method":"PC algorithm (single run)",
-    "Mask":"thesis_pc",
-    "Accuracy":"0.778 \u00b1 0.028",
-    "Macro-F1":"0.764 \u00b1 0.031",
-    "ROC-AUC":"0.846 \u00b1 0.035",
-    "Accuracy_mean":0.7777816963,
-    "Accuracy_std":0.0283210026,
-    "Macro-F1_mean":0.7635212386,
-    "Macro-F1_std":0.0307726233,
-    "ROC-AUC_mean":0.8458552499,
-    "ROC-AUC_std":0.0351340513,
-    "n_params":16
+    "Mask":"pc",
+    "Accuracy":"0.782 \u00b1 0.028",
+    "Macro-F1":"0.767 \u00b1 0.031",
+    "ROC-AUC":"0.846 \u00b1 0.036",
+    "Accuracy_mean":0.7815376477,
+    "Accuracy_std":0.0282776454,
+    "Macro-F1_mean":0.7673648109,
+    "Macro-F1_std":0.0312129123,
+    "ROC-AUC_mean":0.8459117026,
+    "ROC-AUC_std":0.0357821891,
+    "n_params":15
   },
   {
     "Method":"PC stability selection",

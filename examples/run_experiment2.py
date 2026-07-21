@@ -1,8 +1,7 @@
 """
 Run Experiment 2: data-driven structural masks (PC and stability selection).
 
-The PC row uses the fixed 16-edge thesis reference mask discovered on the
-full pooled sample. Stability selection is discovered once on all 531 samples.
+Each mask is discovered once on the full dataset and reused in all CV folds.
 
 Outputs are written to docs/results/experiment2_results.csv and
 examples/outputs/experiment2_results.csv.
@@ -15,16 +14,14 @@ import pandas as pd
 from geometry_fisher.cross_validation import CrossValidationExperiment
 from geometry_fisher.data import load_heart_disease
 from geometry_fisher.experiments import save_results_table
-from geometry_fisher.structure import StructuralMask
 
 from config import DATA_PATH, OUTPUT_DIR, RESULTS_DIR
 
 MASK_SPECS = [
     {
         "name": "PC algorithm (single run)",
-        "mask": "hand",
-        "mask_object": None,
-        "use_thesis_reference": True,
+        "mask": "pc",
+        "mask_params": {"alpha": 0.05, "exogenous": ["age", "sex"]},
     },
     {
         "name": "PC stability selection",
@@ -36,7 +33,6 @@ MASK_SPECS = [
             "exogenous": ["age", "sex"],
             "random_state": 42,
         },
-        "use_thesis_reference": False,
     },
 ]
 
@@ -48,9 +44,6 @@ def main() -> pd.DataFrame:
         verbose=True,
     )
 
-    thesis_pc_mask = StructuralMask.from_thesis_pc_reference(variable_names)
-    print(f"Thesis PC reference mask: {thesis_pc_mask}")
-
     rows = []
 
     print("=" * 78)
@@ -60,14 +53,9 @@ def main() -> pd.DataFrame:
     for spec in MASK_SPECS:
         print(f"\n{spec['name']}\n")
 
-        mask_object = thesis_pc_mask if spec.get("use_thesis_reference") else None
-        mask = spec["mask"]
-        mask_params = spec.get("mask_params", {})
-
         experiment = CrossValidationExperiment(
-            mask=mask,
-            mask_object=mask_object,
-            mask_params=mask_params,
+            mask=spec["mask"],
+            mask_params=spec["mask_params"],
             discover_mask_on="full_data",
             feature_type="godambe",
             lambda_reg=0.01,
@@ -85,13 +73,16 @@ def main() -> pd.DataFrame:
             variable_names=variable_names,
         )
 
-        fixed_mask = mask_object if mask_object is not None else result.fixed_mask
-        n_params = fixed_mask.n_params if fixed_mask is not None else -1
+        n_params = (
+            result.fixed_mask.n_params
+            if result.fixed_mask is not None
+            else -1
+        )
 
         rows.append(
             {
                 "Method": spec["name"],
-                "Mask": "thesis_pc" if spec.get("use_thesis_reference") else spec["mask"],
+                "Mask": spec["mask"],
                 "Accuracy": f"{result.mean_accuracy:.3f} ± {result.std_accuracy:.3f}",
                 "Macro-F1": f"{result.mean_macro_f1:.3f} ± {result.std_macro_f1:.3f}",
                 "ROC-AUC": f"{result.mean_auc:.3f} ± {result.std_auc:.3f}",

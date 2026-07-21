@@ -52,8 +52,8 @@ class CrossValidationExperiment:
         after structure discovery (domain-knowledge curation).
     discover_mask_on : {"full_data", "train_fold"}
         For ``pc`` and ``stability``, where to learn the structural mask.
-        ``full_data`` matches the thesis Experiment 2 protocol: discover once
-        on the pooled sample and reuse the same mask in every fold.
+        ``full_data`` discovers the mask once on the full dataset and reuses it
+        in every fold. ``train_fold`` re-estimates the mask on each training split.
     feature_type : str
         ``godambe`` (thesis method) or ``raw`` (unwhitened gradients).
     outer_splits : int
@@ -113,18 +113,13 @@ class CrossValidationExperiment:
                     raise ValueError(
                         "variable_names are required to discover a data-driven mask."
                     )
-                if mask == "pc" and self.mask_params.get("use_thesis_reference", False):
-                    fixed_mask = StructuralMask.from_thesis_pc_reference(
-                        list(variable_names)
-                    )
-                else:
-                    fixed_mask = discover_data_driven_mask(
-                        X,
-                        variable_names,
-                        continuous_idx,
-                        str(mask),
-                        mask_params,
-                    )
+                fixed_mask = discover_data_driven_mask(
+                    X,
+                    variable_names,
+                    continuous_idx,
+                    str(mask),
+                    mask_params,
+                )
                 mask = "hand"
                 mask_object = fixed_mask
                 mask_params = {}

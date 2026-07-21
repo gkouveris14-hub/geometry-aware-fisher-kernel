@@ -87,9 +87,9 @@ def main(*, show: bool = False) -> None:
         variable_names,
         alpha=MASK_PARAMS["alpha"],
     )
-    pc_mask = StructuralMask.from_thesis_pc_reference(variable_names)
+    pc_mask = pc_discovered.enforce_exogeneity(MASK_PARAMS["exogenous"])
     print(f"PC discovered (raw): {pc_discovered}")
-    print(f"Thesis PC reference: {pc_mask}")
+    print(f"PC curated: {pc_mask}")
 
     stability_discovered = StructuralMask.from_stability_selection(
         X_pc,
@@ -112,7 +112,7 @@ def main(*, show: bool = False) -> None:
         ),
         "mask_pc.png": plot_mask(
             pc_mask,
-            title=f"Thesis PC Mask ({pc_mask.n_params} free parameters, 19.8% density)",
+            title=f"PC Algorithm Mask ({pc_mask.n_params} free parameters)",
         ),
         "mask_stability.png": plot_mask(
             stability_mask,
@@ -141,7 +141,7 @@ def main(*, show: bool = False) -> None:
         "structure_pc_curation.png": plot_structure_curation(
             pc_discovered,
             pc_mask,
-            title="PC Discovery and Thesis Domain Curation (age/sex exogenous)",
+            title="PC Discovery and Domain Curation (age/sex exogenous)",
             exogenous=MASK_PARAMS["exogenous"],
         ),
         "structure_stability_graph.png": plot_structure_graph(

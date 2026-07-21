@@ -13,7 +13,7 @@ def _directed_adjacency_from_pc_graph(graph: np.ndarray) -> np.ndarray:
     """
     Convert a causal-learn CPDAG into a binary structural mask.
 
-    Encoding follows the thesis notebook (``Last_hope-Copy1.ipynb``):
+    Encoding follows causal-learn's CPDAG matrix:
 
     - ``graph[i, j] == 1``  → directed edge i → j
     - ``graph[i, j] == -1`` → directed edge j → i
@@ -37,35 +37,6 @@ def _directed_adjacency_from_pc_graph(graph: np.ndarray) -> np.ndarray:
 
     np.fill_diagonal(matrix, 0)
     return matrix
-
-
-# Final curated PC mask from the thesis (pc_mask_visualization), 16 edges.
-THESIS_PC_ALLOWED_EDGES: tuple[tuple[str, str], ...] = (
-    ("thalch", "age"),
-    ("thalch", "chol"),
-    ("thalch", "exang"),
-    ("thalch", "slope"),
-    ("oldpeak", "trestbps"),
-    ("oldpeak", "chol"),
-    ("oldpeak", "exang"),
-    ("oldpeak", "slope"),
-    ("fbs", "age"),
-    ("fbs", "trestbps"),
-    ("fbs", "chol"),
-    ("exang", "trestbps"),
-    ("exang", "sex"),
-    ("slope", "thalch"),
-    ("slope", "oldpeak"),
-    ("slope", "exang"),
-)
-
-THESIS_PC_REJECTED_EDGES: tuple[tuple[str, str], ...] = (
-    ("age", "trestbps"),
-    ("age", "thalch"),
-    ("age", "fbs"),
-    ("sex", "chol"),
-    ("sex", "exang"),
-)
 
 
 @dataclass
@@ -185,14 +156,6 @@ class StructuralMask:
         return cls(matrix=matrix, variable_names=variable_names)
 
     @classmethod
-    def from_thesis_pc_reference(cls, variable_names: List[str]) -> "StructuralMask":
-        """Return the fixed 16-edge PC mask published in the thesis."""
-        return cls.from_domain_knowledge(
-            variable_names=variable_names,
-            allowed_edges=list(THESIS_PC_ALLOWED_EDGES),
-        )
-
-    @classmethod
     def from_pc_algorithm(
         cls,
         X: np.ndarray,
@@ -272,7 +235,7 @@ class StructuralMask:
 
 
 def prepare_matrix_for_pc(X: np.ndarray) -> np.ndarray:
-    """Z-score every column before PC, matching the thesis notebook."""
+    """Z-score every column before PC (Fisher-Z expects comparable scales)."""
     X_arr = np.asarray(X, dtype=float)
     mean = X_arr.mean(axis=0)
     std = X_arr.std(axis=0)
@@ -302,8 +265,8 @@ def discover_data_driven_mask(
     """
     Discover a data-driven mask on the provided data matrix.
 
-    Experiment 2 in the thesis runs PC once on the full pooled sample and
-    reuses the curated mask in every CV fold.
+    When used with cross-validation and ``discover_mask_on="full_data"``,
+    the mask is learned once on all samples and reused in every fold.
     """
     params = mask_params or {}
     X_pc = prepare_matrix_for_pc(X)

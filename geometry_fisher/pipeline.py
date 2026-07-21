@@ -198,10 +198,6 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
                 exogenous=self.mask_params.get("exogenous", None),
                 forbidden_edges=self.mask_params.get("forbidden_edges", None),
             )
-        if self.mask == "thesis_pc":
-            if variable_names is None:
-                raise ValueError("variable_names are required for mask='thesis_pc'.")
-            return StructuralMask.from_thesis_pc_reference(variable_names)
         if self.mask in ("stability", "data_driven"):
             return StructuralMask.from_stability_selection(
                 X=X,
