@@ -185,7 +185,16 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
             if self.mask_object is None:
                 raise ValueError("When mask='hand', you must provide mask_object.")
             return self.mask_object
-        if self.mask in ("data_driven", "stability", "pc"):
+        if self.mask == "pc":
+            return StructuralMask.from_pc_algorithm(
+                X=X,
+                variable_names=variable_names
+                if variable_names is not None
+                else [f"X{i}" for i in range(X.shape[1])],
+                alpha=self.mask_params.get("alpha", 0.05),
+                exogenous=self.mask_params.get("exogenous", None),
+            )
+        if self.mask in ("stability", "data_driven"):
             return StructuralMask.from_stability_selection(
                 X=X,
                 variable_names=variable_names
@@ -197,7 +206,10 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
                 exogenous=self.mask_params.get("exogenous", None),
                 random_state=self.mask_params.get("random_state", 42),
             )
-        raise ValueError(f"Unknown mask type: {self.mask}")
+        raise ValueError(
+            f"Unknown mask type: {self.mask}. "
+            "Use 'hand', 'pc', or 'stability'."
+        )
 
     def transform(self, X: np.ndarray) -> np.ndarray:
         X = np.asarray(X, dtype=float).copy()

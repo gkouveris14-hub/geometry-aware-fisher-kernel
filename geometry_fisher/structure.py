@@ -9,6 +9,34 @@ from typing import List, Optional, Sequence
 from dataclasses import dataclass
 
 
+def _directed_adjacency_from_pc_graph(graph: np.ndarray) -> np.ndarray:
+    """
+    Convert a PC CPDAG adjacency matrix into a binary structural mask.
+
+    Directed edges are oriented when the PC output identifies an arrow;
+    undirected adjacencies are kept as both directions, matching the thesis.
+    """
+    p = graph.shape[0]
+    matrix = np.zeros((p, p), dtype=int)
+
+    for i in range(p):
+        for j in range(p):
+            if i == j:
+                continue
+            if graph[i, j] == 0 and graph[j, i] == 0:
+                continue
+            if graph[j, i] == 1 and graph[i, j] == -1:
+                matrix[i, j] = 1
+            elif graph[i, j] == 1 and graph[j, i] == -1:
+                matrix[j, i] = 1
+            else:
+                matrix[i, j] = 1
+                matrix[j, i] = 1
+
+    np.fill_diagonal(matrix, 0)
+    return matrix
+
+
 @dataclass
 class StructuralMask:
     """
@@ -89,6 +117,34 @@ class StructuralMask:
         return cls(matrix=matrix, variable_names=variable_names)
 
     @classmethod
+    def from_pc_algorithm(
+        cls,
+        X: np.ndarray,
+        variable_names: List[str],
+        alpha: float = 0.05,
+        exogenous: Optional[Sequence[str]] = None,
+    ) -> "StructuralMask":
+        """Build a mask from one PC run on the training data (Experiment 2)."""
+        from causallearn.search.ConstraintBased.PC import pc
+        from causallearn.utils.cit import fisherz
+
+        cg = pc(
+            np.asarray(X, dtype=float),
+            alpha=alpha,
+            indep_test=fisherz,
+            verbose=False,
+            show_progress=False,
+        )
+        matrix = _directed_adjacency_from_pc_graph(cg.G.graph)
+
+        mask = cls(matrix=matrix, variable_names=variable_names)
+
+        if exogenous is not None:
+            mask = mask.enforce_exogeneity(exogenous)
+
+        return mask
+
+    @classmethod
     def from_stability_selection(
         cls,
         X: np.ndarray,
@@ -99,7 +155,7 @@ class StructuralMask:
         exogenous: Optional[Sequence[str]] = None,
         random_state: int = 42,
     ) -> "StructuralMask":
-        """Build a mask from PC stability selection (Experiment 2 in the thesis)."""
+        """Build a mask from PC stability selection (Experiment 2)."""
         from causallearn.search.ConstraintBased.PC import pc
         from causallearn.utils.cit import fisherz
 
@@ -107,25 +163,18 @@ class StructuralMask:
         edge_freq = np.zeros((p, p))
         rng = np.random.RandomState(random_state)
 
-        for b in range(B):
+        for _ in range(B):
             indices = rng.choice(n_samples, size=n_samples, replace=True)
             X_b = X[indices]
 
-            cg = pc(X_b, alpha=alpha, indep_test=fisherz, verbose=False, show_progress=False)
-            graph = cg.G.graph
-
-            for i in range(p):
-                for j in range(p):
-                    if i == j:
-                        continue
-                    if graph[i, j] != 0 or graph[j, i] != 0:
-                        if graph[j, i] == 1 and graph[i, j] == -1:
-                            edge_freq[i, j] += 1.0
-                        elif graph[i, j] == 1 and graph[j, i] == -1:
-                            edge_freq[j, i] += 1.0
-                        else:
-                            edge_freq[i, j] += 0.5
-                            edge_freq[j, i] += 0.5
+            cg = pc(
+                X_b,
+                alpha=alpha,
+                indep_test=fisherz,
+                verbose=False,
+                show_progress=False,
+            )
+            edge_freq += _directed_adjacency_from_pc_graph(cg.G.graph)
 
         edge_freq /= B
         matrix = (edge_freq >= tau_stab).astype(int)

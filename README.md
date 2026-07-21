@@ -33,6 +33,16 @@ python examples/run_experiments.py
 
 Writes `examples/outputs/results.csv`.
 
+## Reproduce Experiment 2 (data-driven masks)
+
+Single PC run and PC stability selection, 5-fold CV:
+
+```bash
+python examples/run_experiment2.py
+```
+
+Writes `examples/outputs/experiment2_results.csv`. Stability selection uses `B=50` bootstrap resamples by default and is slower than the single PC run.
+
 ## Cross-validation
 
 In each fold:
@@ -45,14 +55,36 @@ In each fold:
 
 **Hand-specified mask (Experiment 1):** set `mask="hand"` and pass a `StructuralMask` with domain constraints (age and sex exogenous).
 
-**Data-driven mask (Experiment 2):** set `mask="data_driven"`; the loader runs PC stability selection via `StructuralMask.from_stability_selection()`.
+**Single PC run (Experiment 2):** set `mask="pc"`.
 
 ```python
 clf = GeometryFisherClassifier(
-    mask="data_driven",
-    mask_params={"alpha": 0.05, "tau_stab": 0.6, "B": 50, "exogenous": ["age", "sex"]},
+    mask="pc",
+    mask_params={"alpha": 0.05, "exogenous": ["age", "sex"]},
     feature_type="godambe",
 )
+```
+
+**PC stability selection (Experiment 2):** set `mask="stability"`.
+
+```python
+clf = GeometryFisherClassifier(
+    mask="stability",
+    mask_params={
+        "alpha": 0.05,
+        "tau_stab": 0.6,
+        "B": 50,
+        "exogenous": ["age", "sex"],
+    },
+    feature_type="godambe",
+)
+```
+
+You can also build masks directly:
+
+```python
+mask = StructuralMask.from_pc_algorithm(X, variable_names, alpha=0.05, exogenous=["age", "sex"])
+mask = StructuralMask.from_stability_selection(X, variable_names, B=50, exogenous=["age", "sex"])
 ```
 
 ## Visualizations

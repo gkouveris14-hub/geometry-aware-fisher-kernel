@@ -132,7 +132,6 @@ def test_sandwich_whitening_is_psd(heart_data):
 
 def test_class_models_share_identical_ordinal_thresholds(heart_data):
     from geometry_fisher.pipeline import GeometryFisherClassifier
-    from geometry_fisher.structure import StructuralMask
 
     X, y, variable_names, continuous_idx, ordinal_idx = heart_data
     mask = StructuralMask.from_domain_knowledge(
@@ -154,6 +153,38 @@ def test_class_models_share_identical_ordinal_thresholds(heart_data):
             clf.model_0_.thresholds_[key],
             clf.model_1_.thresholds_[key],
         )
+
+
+def _scale_continuous(X, continuous_idx):
+    X_scaled = X.copy()
+    X_scaled[:, continuous_idx] = (
+        X[:, continuous_idx] - X[:, continuous_idx].mean(axis=0)
+    ) / X[:, continuous_idx].std(axis=0)
+    return X_scaled
+
+
+def test_pc_and_stability_masks_build_from_data(heart_data):
+    X, _, variable_names, continuous_idx, _ = heart_data
+    X_scaled = _scale_continuous(X, continuous_idx)
+
+    pc_mask = StructuralMask.from_pc_algorithm(
+        X_scaled,
+        variable_names,
+        alpha=0.05,
+        exogenous=["age", "sex"],
+    )
+    assert pc_mask.n_params > 0
+
+    stability_mask = StructuralMask.from_stability_selection(
+        X_scaled,
+        variable_names,
+        alpha=0.05,
+        tau_stab=0.6,
+        B=5,
+        exogenous=["age", "sex"],
+        random_state=42,
+    )
+    assert stability_mask.n_params > 0
 
 
 def test_only_raw_and_godambe_feature_types_are_supported():

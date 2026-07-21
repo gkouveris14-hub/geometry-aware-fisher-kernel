@@ -40,9 +40,10 @@ class CrossValidationExperiment:
     Parameters
     ----------
     mask : str or StructuralMask
-        "hand", "data_driven", or a StructuralMask instance.
+        ``hand``, ``pc``, ``stability``, or a ``StructuralMask`` instance.
     mask_params : dict
-        Parameters for data-driven mask (alpha, tau_stab, B, exogenous...).
+        For ``pc``: ``alpha``, ``exogenous``.
+        For ``stability``: ``alpha``, ``tau_stab``, ``B``, ``exogenous``, ``random_state``.
     feature_type : str
         ``godambe`` (thesis method) or ``raw`` (unwhitened gradients).
     outer_splits : int
