@@ -167,9 +167,7 @@ $$
 
 where $G_k \in \mathbb{R}^{n_k \times d}$ stacks score rows.
 
-Optional **Ledoit–Wolf shrinkage** toward a scaled identity can be applied to $J_k$ (`shrink_j=True`).
-
-**Code:** `geometry.py` → `GodambeGeometry.fit()` computes `J_`; shrinkage in `ledoit_wolf_shrinkage()`.
+**Code:** `geometry.py` → `GodambeGeometry.fit()` computes `J_`.
 
 ---
 

@@ -6,7 +6,7 @@ Matches the thesis sandwich transform: G = H^{-1} J H^{-1}, A = psd_sqrt(G).
 from __future__ import annotations
 
 import numpy as np
-from typing import Optional, Tuple
+from typing import Optional
 from dataclasses import dataclass, field
 from numpy.linalg import inv
 
@@ -23,19 +23,6 @@ def psd_sqrt(M: np.ndarray, eps: float = 1e-10) -> np.ndarray:
     return evecs @ np.diag(np.sqrt(evals)) @ evecs.T
 
 
-def ledoit_wolf_shrinkage(J: np.ndarray, n_samples: int) -> Tuple[np.ndarray, float]:
-    d = J.shape[0]
-    mu = np.trace(J) / d
-    target = mu * np.eye(d)
-
-    frobenius_J = np.sum(J ** 2)
-    frobenius_diff = np.sum((J - target) ** 2)
-    delta = min(1.0, max(0.0, (frobenius_J / n_samples) / (frobenius_diff + 1e-12)))
-
-    J_shrunk = (1 - delta) * J + delta * target
-    return J_shrunk, delta
-
-
 @dataclass
 class GodambeGeometry:
     """
@@ -45,12 +32,9 @@ class GodambeGeometry:
     gradients: np.ndarray
     H: np.ndarray
     ridge_gamma: float = 1e-3
-    shrink_j: bool = False
 
     H_: Optional[np.ndarray] = field(default=None, init=False)
     J_: Optional[np.ndarray] = field(default=None, init=False)
-    J_shrunk_: Optional[np.ndarray] = field(default=None, init=False)
-    delta_: Optional[float] = field(default=None, init=False)
     G_inv_: Optional[np.ndarray] = field(default=None, init=False)
     A_: Optional[np.ndarray] = field(default=None, init=False)
     is_fitted_: bool = field(default=False, init=False)
@@ -61,18 +45,10 @@ class GodambeGeometry:
         self.H_ = stable_symmetrize(self.H)
         self.J_ = stable_symmetrize((self.gradients.T @ self.gradients) / n_samples)
 
-        if self.shrink_j:
-            self.J_shrunk_, self.delta_ = ledoit_wolf_shrinkage(self.J_, n_samples)
-            J_use = self.J_shrunk_
-        else:
-            self.J_shrunk_ = self.J_.copy()
-            self.delta_ = 0.0
-            J_use = self.J_
-
         H_reg = self.H_ + self.ridge_gamma * np.eye(d)
         H_inv = inv(H_reg)
 
-        self.G_inv_ = H_inv @ J_use @ H_inv
+        self.G_inv_ = H_inv @ self.J_ @ H_inv
         self.A_ = psd_sqrt(self.G_inv_)
 
         self.is_fitted_ = True
@@ -85,5 +61,4 @@ class GodambeGeometry:
 
     def __repr__(self) -> str:
         status = "fitted" if self.is_fitted_ else "not fitted"
-        delta_str = f"{self.delta_:.3f}" if self.delta_ is not None else "None"
-        return f"GodambeGeometry(delta={delta_str}, {status})"
+        return f"GodambeGeometry({status})"

@@ -134,7 +134,6 @@ def run_experiments(
             feature_type=method.feature_type,
             lambda_reg=lambda_reg,
             ridge_gamma=ridge_gamma,
-            shrink_j=False,
             outer_splits=outer_splits,
             random_state=random_state,
             verbose=verbose,

@@ -28,7 +28,6 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
         mask_params: Optional[Dict[str, Any]] = None,
         lambda_reg: float = 0.01,
         ridge_gamma: float = 1e-3,
-        shrink_j: bool = False,
         feature_type: str = "godambe",
         C: float = 1.0,
         max_iter: int = 1000,
@@ -40,7 +39,6 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
         self.mask_params = mask_params or {}
         self.lambda_reg = lambda_reg
         self.ridge_gamma = ridge_gamma
-        self.shrink_j = shrink_j
         self.feature_type = normalize_feature_type(feature_type)
         self.C = C
         self.max_iter = max_iter
@@ -139,13 +137,11 @@ class GeometryFisherClassifier(BaseEstimator, ClassifierMixin):
                 gradients=grads_0_class,
                 H=H0,
                 ridge_gamma=self.ridge_gamma,
-                shrink_j=self.shrink_j,
             ).fit()
             self.geometry_1_ = GodambeGeometry(
                 gradients=grads_1_class,
                 H=H1,
                 ridge_gamma=self.ridge_gamma,
-                shrink_j=self.shrink_j,
             ).fit()
         else:
             self.geometry_0_ = None

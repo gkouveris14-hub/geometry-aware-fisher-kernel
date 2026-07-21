@@ -70,7 +70,6 @@ class CrossValidationExperiment:
         feature_type: str = "godambe",
         lambda_reg: float = 0.01,
         ridge_gamma: float = 1e-3,
-        shrink_j: bool = False,
         C: float = 1.0,
         scale_phi: bool = True,
         outer_splits: int = 5,
@@ -84,7 +83,6 @@ class CrossValidationExperiment:
         self.feature_type = feature_type
         self.lambda_reg = lambda_reg
         self.ridge_gamma = ridge_gamma
-        self.shrink_j = shrink_j
         self.C = C
         self.scale_phi = scale_phi
         self.outer_splits = outer_splits
@@ -161,7 +159,6 @@ class CrossValidationExperiment:
                 mask_params=fold_mask_params,
                 lambda_reg=self.lambda_reg,
                 ridge_gamma=self.ridge_gamma,
-                shrink_j=self.shrink_j,
                 feature_type=self.feature_type,
                 C=self.C,
                 scale_phi=self.scale_phi,
