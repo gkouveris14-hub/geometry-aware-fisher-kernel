@@ -19,14 +19,9 @@ Compare against `feature_type="raw"` (unwhitened gradients, ablation baseline).
 
 Experiments use the UCI Heart Disease CSV with **9 selected variables** (5 continuous + 4 ordinal).
 
-| Setting | Samples after cleaning | Class balance (0 / 1) |
-|---------|------------------------|------------------------|
-| **Default (all centers, thesis protocol)** | **531** | 207 / 324 |
-| Cleveland only (`only_cleveland=True`) | 303 | 164 / 139 |
+After selecting those variables and dropping rows with missing values, the thesis protocol yields **531 patients** (class balance **207 / 324**). The raw CSV contains 920 rows across four hospitals; the bundled file matches the preprocessing in `Last_hope.ipynb`.
 
-The raw CSV contains 920 rows across four hospitals. After selecting the 9 study variables and dropping rows with missing values, the **default loader keeps all centers (531 patients)**, matching `Last_hope.ipynb`.
-
-The dataset file used in the thesis is bundled at `data/heart_disease_uci.csv` (UCI Heart Disease, four-center version).
+Bundled data: `data/heart_disease_uci.csv`
 
 ## Installation
 
