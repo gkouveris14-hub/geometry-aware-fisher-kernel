@@ -59,11 +59,14 @@ The mask encodes which conditional dependencies are estimated. Diagonal entries 
 | PC algorithm | Single PC run on pooled data (Fisher-Z, $\alpha=0.05$) | `StructuralMask.from_pc_algorithm()` |
 | Stability selection | Bootstrap PC + frequency threshold $\tau$ | `StructuralMask.from_stability_selection()` |
 
-Post-discovery curation (block incoming edges to exogenous variables, remove specific edges):
+Post-discovery curation (equivalent to passing `exogenous` / `forbidden_edges` in `mask_params`):
+
+- **`enforce_exogeneity(["age", "sex"])`** — marks `age` and `sex` as exogenous: all **incoming** edges to those nodes are removed (nothing may predict them). This is applied in **Exp 1 and Exp 2** via `exogenous=["age", "sex"]` in `mask_params`.
+- **`block_edges([("chol", "slope")])`** — removes one directed edge; tuple order is `(target, source)`, so this blocks **slope → chol**. Shown here as an **optional example only**; it is **not** used in the reported experiments.
 
 ```python
 mask = mask.enforce_exogeneity(["age", "sex"])
-mask = mask.block_edges([("chol", "slope")])  # remove source → target
+mask = mask.block_edges([("chol", "slope")])
 ```
 
 **Code:** `structure.py` → `StructuralMask`, `discover_data_driven_mask()`, `_directed_adjacency_from_pc_graph()`.
@@ -374,6 +377,8 @@ clf.fit(X, y, cont_idx, ord_idx, names)
 ```
 
 ### Data-driven mask (Experiment 2)
+
+Exp 2 passes `exogenous=["age", "sex"]` so incoming edges to `age` and `sex` are blocked after PC or stability discovery. The `forbidden_edges` entry below illustrates optional single-edge removal and is **not** used in the reported results.
 
 ```python
 clf = GeometryFisherClassifier(
