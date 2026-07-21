@@ -203,10 +203,25 @@ $$
 
 Two feature modes:
 
-| `feature_type` | Definition |
-|----------------|------------|
-| `"raw"` | $\Phi(x) = \begin{bmatrix} g_0(x) \\ g_1(x) \end{bmatrix}$ |
-| `"godambe"` | $\Phi(x) = \begin{bmatrix} A_0 \cdot g_0(x) \\ A_1 \cdot g_1(x) \end{bmatrix}$ |
+**`raw`** — concatenate the class score vectors:
+
+$$
+\Phi(x) =
+\begin{bmatrix}
+g_0(x) \\
+g_1(x)
+\end{bmatrix}
+$$
+
+**`godambe`** — concatenate the Godambe-whitened scores:
+
+$$
+\Phi(x) =
+\begin{bmatrix}
+A_0 \cdot g_0(x) \\
+A_1 \cdot g_1(x)
+\end{bmatrix}
+$$
 
 **Code:** `features.py` → `build_feature_matrix()`; called from `pipeline.py` → `_build_phi()`.
 
