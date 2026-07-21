@@ -1,6 +1,8 @@
 [
   {
     "Method":"PC algorithm (single run)",
+    "Features":"Godambe whitening",
+    "Feature_type":"godambe",
     "Mask":"pc",
     "Accuracy":"0.782 \u00b1 0.028",
     "Macro-F1":"0.767 \u00b1 0.031",
@@ -14,7 +16,25 @@
     "n_params":15
   },
   {
+    "Method":"PC algorithm (single run)",
+    "Features":"Raw gradient features",
+    "Feature_type":"raw",
+    "Mask":"pc",
+    "Accuracy":"0.780 \u00b1 0.030",
+    "Macro-F1":"0.765 \u00b1 0.032",
+    "ROC-AUC":"0.849 \u00b1 0.036",
+    "Accuracy_mean":0.7796508552,
+    "Accuracy_std":0.0302502104,
+    "Macro-F1_mean":0.7653049859,
+    "Macro-F1_std":0.0321729899,
+    "ROC-AUC_mean":0.8485914467,
+    "ROC-AUC_std":0.0361136569,
+    "n_params":15
+  },
+  {
     "Method":"PC stability selection",
+    "Features":"Godambe whitening",
+    "Feature_type":"godambe",
     "Mask":"stability",
     "Accuracy":"0.793 \u00b1 0.030",
     "Macro-F1":"0.779 \u00b1 0.034",
@@ -25,6 +45,22 @@
     "Macro-F1_std":0.0338444544,
     "ROC-AUC_mean":0.8490843887,
     "ROC-AUC_std":0.0322215735,
+    "n_params":12
+  },
+  {
+    "Method":"PC stability selection",
+    "Features":"Raw gradient features",
+    "Feature_type":"raw",
+    "Mask":"stability",
+    "Accuracy":"0.789 \u00b1 0.036",
+    "Macro-F1":"0.776 \u00b1 0.039",
+    "ROC-AUC":"0.849 \u00b1 0.031",
+    "Accuracy_mean":0.7890495503,
+    "Accuracy_std":0.0362392734,
+    "Macro-F1_mean":0.775526482,
+    "Macro-F1_std":0.0388938869,
+    "ROC-AUC_mean":0.8490961985,
+    "ROC-AUC_std":0.0307448596,
     "n_params":12
   }
 ]

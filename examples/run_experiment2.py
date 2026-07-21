@@ -2,6 +2,7 @@
 Run Experiment 2: data-driven structural masks (PC and stability selection).
 
 Each mask is discovered once on the full dataset and reused in all CV folds.
+Reports both Godambe-whitened and raw gradient features for each mask.
 
 Outputs are written to docs/results/experiment2_results.csv and
 examples/outputs/experiment2_results.csv.
@@ -36,6 +37,11 @@ MASK_SPECS = [
     },
 ]
 
+FEATURE_TYPES = [
+    ("Godambe whitening", "godambe"),
+    ("Raw gradient features", "raw"),
+]
+
 
 def main() -> pd.DataFrame:
     X, y, variable_names, continuous_idx, ordinal_idx = load_heart_disease(
@@ -51,50 +57,53 @@ def main() -> pd.DataFrame:
     print("=" * 78)
 
     for spec in MASK_SPECS:
-        print(f"\n{spec['name']}\n")
+        for feature_label, feature_type in FEATURE_TYPES:
+            print(f"\n{spec['name']} — {feature_label}\n")
 
-        experiment = CrossValidationExperiment(
-            mask=spec["mask"],
-            mask_params=spec["mask_params"],
-            discover_mask_on="full_data",
-            feature_type="godambe",
-            lambda_reg=0.01,
-            ridge_gamma=1e-3,
-            outer_splits=5,
-            random_state=42,
-            verbose=True,
-        )
+            experiment = CrossValidationExperiment(
+                mask=spec["mask"],
+                mask_params=spec["mask_params"],
+                discover_mask_on="full_data",
+                feature_type=feature_type,
+                lambda_reg=0.01,
+                ridge_gamma=1e-3,
+                outer_splits=5,
+                random_state=42,
+                verbose=True,
+            )
 
-        result = experiment.run(
-            X,
-            y,
-            continuous_idx=continuous_idx,
-            ordinal_idx=ordinal_idx,
-            variable_names=variable_names,
-        )
+            result = experiment.run(
+                X,
+                y,
+                continuous_idx=continuous_idx,
+                ordinal_idx=ordinal_idx,
+                variable_names=variable_names,
+            )
 
-        n_params = (
-            result.fixed_mask.n_params
-            if result.fixed_mask is not None
-            else -1
-        )
+            n_params = (
+                result.fixed_mask.n_params
+                if result.fixed_mask is not None
+                else -1
+            )
 
-        rows.append(
-            {
-                "Method": spec["name"],
-                "Mask": spec["mask"],
-                "Accuracy": f"{result.mean_accuracy:.3f} ± {result.std_accuracy:.3f}",
-                "Macro-F1": f"{result.mean_macro_f1:.3f} ± {result.std_macro_f1:.3f}",
-                "ROC-AUC": f"{result.mean_auc:.3f} ± {result.std_auc:.3f}",
-                "Accuracy_mean": result.mean_accuracy,
-                "Accuracy_std": result.std_accuracy,
-                "Macro-F1_mean": result.mean_macro_f1,
-                "Macro-F1_std": result.std_macro_f1,
-                "ROC-AUC_mean": result.mean_auc,
-                "ROC-AUC_std": result.std_auc,
-                "n_params": n_params,
-            }
-        )
+            rows.append(
+                {
+                    "Method": spec["name"],
+                    "Features": feature_label,
+                    "Feature_type": feature_type,
+                    "Mask": spec["mask"],
+                    "Accuracy": f"{result.mean_accuracy:.3f} ± {result.std_accuracy:.3f}",
+                    "Macro-F1": f"{result.mean_macro_f1:.3f} ± {result.std_macro_f1:.3f}",
+                    "ROC-AUC": f"{result.mean_auc:.3f} ± {result.std_auc:.3f}",
+                    "Accuracy_mean": result.mean_accuracy,
+                    "Accuracy_std": result.std_accuracy,
+                    "Macro-F1_mean": result.mean_macro_f1,
+                    "Macro-F1_std": result.std_macro_f1,
+                    "ROC-AUC_mean": result.mean_auc,
+                    "ROC-AUC_std": result.std_auc,
+                    "n_params": n_params,
+                }
+            )
 
     table = pd.DataFrame(rows)
 
@@ -102,9 +111,9 @@ def main() -> pd.DataFrame:
     print("Experiment 2 results")
     print("=" * 78)
     print(
-        table[["Method", "Accuracy", "Macro-F1", "ROC-AUC", "n_params"]].to_string(
-            index=False
-        )
+        table[
+            ["Method", "Features", "Accuracy", "Macro-F1", "ROC-AUC", "n_params"]
+        ].to_string(index=False)
     )
     print("=" * 78)
 

@@ -22,7 +22,7 @@ data → mask M → fit θ₀, θ₁ → gradients g₀(x), g₁(x) → Godambe 
 |------|--------|
 | End-to-end orchestration | `geometry_fisher/pipeline.py` → `GeometryFisherClassifier` |
 | Cross-validation | `geometry_fisher/cross_validation.py` → `CrossValidationExperiment` |
-| Experiments & baselines | `examples/run_experiments.py`, `examples/run_experiment2.py` |
+| Experiments & baselines | `examples/run_experiments.py`, `examples/run_experiment2.py`, `examples/run_simulation_study.py` |
 
 ---
 
@@ -360,12 +360,18 @@ python examples/run_experiments.py
 
 Source: [`docs/results/experiment1_results.csv`](docs/results/experiment1_results.csv)
 
-### Experiment 2 — data-driven masks (Godambe whitening)
+### Experiment 2 — data-driven masks
 
-| Method | Accuracy | Macro-F1 | ROC-AUC | n_params |
-|--------|----------|----------|---------|----------|
-| PC algorithm (single run) | 0.782 ± 0.028 | 0.767 ± 0.031 | 0.846 ± 0.036 | 15 |
-| PC stability selection | 0.793 ± 0.030 | 0.779 ± 0.034 | 0.849 ± 0.032 | 12 |
+Same protocol as Exp 1; masks discovered once on full data (`discover_mask_on="full_data"`). Both **Godambe whitening** and **raw gradient features** are reported for each mask.
+
+| Method | Features | Accuracy | Macro-F1 | ROC-AUC | n_params |
+|--------|----------|----------|----------|---------|----------|
+| PC algorithm (single run) | Godambe | 0.782 ± 0.028 | 0.767 ± 0.031 | 0.846 ± 0.036 | 15 |
+| PC algorithm (single run) | Raw | 0.780 ± 0.030 | 0.765 ± 0.032 | 0.849 ± 0.036 | 15 |
+| PC stability selection | Godambe | 0.793 ± 0.030 | 0.779 ± 0.034 | 0.849 ± 0.032 | 12 |
+| PC stability selection | Raw | 0.789 ± 0.036 | 0.776 ± 0.039 | 0.849 ± 0.031 | 12 |
+
+On Heart Disease, whitening and raw gradients are **equivalent** for both data-driven masks (AUC within fold noise).
 
 PC: Fisher-Z test, $\alpha=0.05$, all columns z-scored, incoming edges to `age`/`sex` blocked. Stability: $B=50$, $\tau=0.6$.
 
@@ -374,6 +380,59 @@ python examples/run_experiment2.py
 ```
 
 Source: [`docs/results/experiment2_results.csv`](docs/results/experiment2_results.csv)
+
+### Experiment 3 — when Godambe beats raw (simulation)
+
+Controlled **score-level** simulation (`geometry_fisher/simulation.py`): draw $H \neq J$, sample scores $g \sim \mathcal N(0,J)$, build labels from a **sparse linear functional of Godambe-whitened scores** $Ag$, and compare regularized logistic regression on raw $g$ vs $Ag$ vs $H^{-1/2}g$. This isolates the geometry question without composite-fitting noise.
+
+| $n$ | Raw AUC | Hessian AUC | Godambe AUC |
+|-----|---------|-------------|-------------|
+| 60 | 0.836 ± 0.083 | 0.945 ± 0.054 | **0.930 ± 0.066** |
+| 100 | 0.891 ± 0.064 | 0.965 ± 0.025 | **0.956 ± 0.033** |
+| 160 | 0.902 ± 0.050 | 0.974 ± 0.015 | **0.961 ± 0.028** |
+| 240 | 0.927 ± 0.035 | 0.979 ± 0.012 | **0.969 ± 0.020** |
+| 360 | 0.952 ± 0.021 | 0.987 ± 0.013 | **0.978 ± 0.020** |
+
+30 replicates per row; $d=40$ score dimensions, 4 active label coefficients, LR $C=0.005$, features column-standardized before classification.
+
+**Takeaway:** Godambe whitening improves **sample efficiency** when the signal is sparse in geometry-aware coordinates but dense in raw score space. The gap **shrinks as $n$ grows** — matching Exp 1–2, where 531 samples were enough for raw gradients to catch up.
+
+```bash
+python examples/run_simulation_study.py
+```
+
+Source: [`docs/results/simulation_geometry_results.csv`](docs/results/simulation_geometry_results.csv)
+
+---
+
+## Choosing raw vs Godambe whitening
+
+| Use **`feature_type="godambe"`** when… | **`feature_type="raw"`** is enough when… |
+|----------------------------------------|------------------------------------------|
+| Sample size per class is **small** relative to mask dimension $d$ | You have **plenty of data** (Heart Disease–scale or larger) |
+| Composite / pseudo-likelihood — **$H \neq J$** (check below) | Features are **scaled** downstream (`scale_phi=True`, default) and CV shows no gain |
+| You want **geometry-correct** Fisher-kernel features for theory or kernels | You only need a **quick baseline** on the same composite scores |
+| Simulation-like regime: regularized linear readout, ill-conditioned raw scores | Raw vs Godambe **AUC difference < 0.02** on your CV |
+
+### Before applying on a new dataset
+
+Run the comparison script on your data (same mask and CV as the final experiment):
+
+```bash
+python examples/compare_feature_types.py --mask hand
+python examples/compare_feature_types.py --mask pc
+```
+
+Checklist:
+
+1. **Problem fit** — Binary outcome; mixed continuous + ordinal columns; you can specify (or learn) which variables may affect which.
+2. **Mask** — Hand-specify domain edges, or discover with PC/stability and curate (`exogenous`, optional `forbidden_edges`).
+3. **Sample size** — Let $n_{\min} = \min_k n_k$ per class and $d$ = mask parameter count. If $n_{\min} \ll 2d$, prefer Godambe or a sparser mask.
+4. **$H$ vs $J$** — The script prints mean $\|H-J\|/\|H\|$ per class. Values **$\gg 0.5$** mean composite curvature and score variability diverge strongly; Godambe is theoretically preferred over Fisher-style shortcuts.
+5. **Empirical AUC** — Compare 5-fold CV AUC for `raw` vs `godambe`. If the gain is under 0.02, whitening is optional on that dataset.
+6. **Deployment default** — Keep `scale_phi=True` for numerical stability; use `scale_phi=False` only in ablations.
+
+The **structural mask** is usually the main modeling choice for applied users; whitening is the statistically principled metric when steps 3–5 point toward geometry correction.
 
 ---
 
@@ -481,6 +540,7 @@ Directed graphs: **source → target** arrows. Gold nodes = exogenous (`age`, `s
 | `features.py` | Feature map $\Phi(x)$: `raw` or `godambe` |
 | `pipeline.py` | `GeometryFisherClassifier` — full fit/predict pipeline |
 | `cross_validation.py` | Stratified k-fold evaluation |
+| `simulation.py` | Synthetic score-geometry study (Exp 3) |
 | `experiments.py` | Baseline comparison tables |
 | `baselines.py` | Logistic regression, Random Forest, XGBoost |
 | `data.py` | Heart Disease data loader |
