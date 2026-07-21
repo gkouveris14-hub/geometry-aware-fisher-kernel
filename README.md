@@ -4,7 +4,7 @@ Implementation of the method from:
 
 > Konstantinos Gkouveris, *A Geometry-Aware Generalized Fisher Kernel Framework for Binary Classification of Mixed-Type Data under Composite Likelihood*, University of Nicosia, 2026.
 
-The pipeline fits **class-specific composite likelihood models** under a **structural mask**, builds **Fisher score features** from both classes, optionally **whitens** them with the **Godambe sandwich geometry**, and trains a **logistic regression** classifier on the resulting feature vectors.
+The pipeline fits **class-specific composite likelihood models** under a **structural mask**, builds **generalized Fisher score features** from both classes, whitens them with the **inverse Godambe metric** (replacing inverse Fisher information in the classical Fisher kernel), and trains a **logistic regression** classifier on the resulting feature vectors.
 
 ---
 
@@ -15,7 +15,7 @@ For binary label $y \in \{0,1\}$ and mixed-type feature vector $x \in \mathbb{R}
 1. Choose a structural mask $M$ (hand-specified or data-driven).
 2. Fit a separate masked composite model in each class to obtain $\hat\theta_0, \hat\theta_1$.
 3. For each observation, compute class-conditional score gradients $g_0(x), g_1(x)$.
-4. Build $\Phi(x)$ by concatenating raw gradients or Godambe-whitened gradients.
+4. Build $\Phi(x)$ by concatenating raw gradients or **geometry-aware** gradients whitened with $(G_k)^{-1}$.
 5. Train logistic regression on $\Phi(x)$.
 
 ```
@@ -174,23 +174,31 @@ where $G_k \in \mathbb{R}^{n_k \times d}$ stacks score rows.
 
 ---
 
-### 7. Godambe sandwich geometry and whitening
+### 7. Inverse Godambe metric and geometry-aware whitening
 
-In the Godambe / composite-likelihood literature, the **Godambe information matrix** is usually written
+#### Replacing Fisher information
+
+Under a correctly specified likelihood, the classical **Fisher kernel** compares score vectors using the Fisher information matrix $I(\theta)$, equivalently via whitened features $\phi(x) = I(\theta)^{-1/2} s(x)$ (Jaakkola & Haussler, 1998). Composite and pseudo-likelihood objectives break the information-matrix equality ($H \neq J$), so $I(\theta)$ is no longer the appropriate local information matrix.
+
+The **Godambe information matrix** generalizes Fisher information in this setting:
 
 $$
 G_k = H_k \cdot J_k^{-1} \cdot H_k
 $$
 
-(sensitivity–variability–sensitivity sandwich with **$J_k^{-1}$** in the middle).
+(sensitivity–variability–sensitivity sandwich; see Godambe, 1960; Varin et al., 2011). When the model is well specified, $G_k$ reduces to the Fisher information; under composite likelihood it accounts for both curvature ($H_k$) and score variability ($J_k$).
 
-**This implementation does not use $G_k$ directly.** Whitening is built from the **inverse sandwich**
+#### Inverse Godambe metric (thesis whitening geometry)
+
+The classical Fisher kernel uses **$I(\theta)^{-1}$** as the geometry-defining object. This framework uses the same construction with Godambe information in place of Fisher information: the **inverse Godambe metric**
 
 $$
 G_k^{-1} = H_k^{-1} \cdot J_k \cdot H_k^{-1}
 $$
 
-which is the standard sandwich form for the asymptotic covariance of the M-estimator (same object, inverted middle factor). With ridge on the Hessian:
+defines the local Riemannian geometry for gradient-based features (thesis §3.4.3). It is the direct Godambe analogue of inverse Fisher information—not an ad hoc inversion, but the metric that weights each score direction by both objective curvature and observed gradient variability.
+
+With ridge on the Hessian:
 
 $$
 H_k^{\mathrm{reg}} = H_k + \gamma I, \quad G_k^{-1} = \bigl(H_k^{\mathrm{reg}}\bigr)^{-1} \cdot J_k \cdot \bigl(H_k^{\mathrm{reg}}\bigr)^{-1}
@@ -198,11 +206,21 @@ $$
 
 with default $\gamma = 10^{-3}$ (`ridge_gamma`).
 
-A matrix square root $A_k = \bigl(G_k^{-1}\bigr)^{1/2}$ is obtained via eigendecomposition (clipped to PSD). The **whitened score** for class $k$ is the row vector:
+#### Whitening transform
+
+Find $A_k$ such that $A_k^\top A_k = G_k^{-1}$ (symmetric PSD square root via eigendecomposition). The **geometry-aware score** is:
 
 $$
-\tilde g_k(x) = g_k(x) \cdot A_k^\top \in \mathbb{R}^d
+\tilde g_k(x) = A_k \, g_k(x) \in \mathbb{R}^d
 $$
+
+In code, scores are row vectors so this is implemented as $\tilde g_k(x) = g_k(x) \cdot A_k^\top$. By construction,
+
+$$
+\|\tilde g_k(x)\|_2^2 = g_k(x)^\top G_k^{-1} g_k(x)
+$$
+
+so Euclidean distances in feature space reflect the inverse Godambe geometry rather than raw parameter-space coordinates.
 
 **Code:** `geometry.py` → `GodambeGeometry` (`fit()`, `transform()`), helpers `stable_symmetrize()`, `psd_sqrt()`. The fitted attribute `G_inv_` stores $G_k^{-1}$.
 
@@ -222,7 +240,7 @@ g_1(x)
 \end{bmatrix}
 $$
 
-**`godambe`** — concatenate the whitened scores $\tilde g_0(x)$, $\tilde g_1(x)$ from §7:
+**`godambe`** — concatenate the geometry-aware scores $\tilde g_0(x)$, $\tilde g_1(x)$ from §7 (generalized Fisher kernel features):
 
 $$
 \Phi(x) =
@@ -236,7 +254,7 @@ g_1(x) \cdot A_1^\top
 \end{bmatrix}
 $$
 
-Here $g_k(x)$ are the raw score vectors (§4), $A_k$ are the Godambe whitening matrices (§7), and $\tilde g_k(x) = g_k(x) \cdot A_k^\top$.
+Here $g_k(x)$ are the raw score vectors (§4), $A_k$ satisfy $A_k^\top A_k = G_k^{-1}$ (§7), and $\tilde g_k(x) = g_k(x) \cdot A_k^\top$.
 
 **Code:** `features.py` → `build_feature_matrix()`; called from `pipeline.py` → `_build_phi()`.
 
@@ -463,7 +481,7 @@ Directed graphs: **source → target** arrows. Gold nodes = exogenous (`age`, `s
 |--------|------|
 | `structure.py` | Structural mask $M$; PC and stability selection; edge blocking |
 | `composite.py` | Class-specific composite likelihood; optimization; gradients; Hessian |
-| `geometry.py` | Inverse Godambe sandwich $G^{-1} = H^{-1}JH^{-1}$; whitening matrix $A$ |
+| `geometry.py` | Inverse Godambe metric $G^{-1}=H^{-1}JH^{-1}$; whitening $A=(G^{-1})^{1/2}$ |
 | `features.py` | Feature map $\Phi(x)$: `raw` or `godambe` |
 | `pipeline.py` | `GeometryFisherClassifier` — full fit/predict pipeline |
 | `cross_validation.py` | Stratified k-fold evaluation |
