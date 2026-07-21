@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Experiment 2 — Structure Visualizations</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      background: #fafafa;
+      color: #222;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    p.sub { color: #555; margin-top: 0; }
+    section { margin: 2rem 0; }
+    h2 { font-size: 1.1rem; border-bottom: 1px solid #ddd; padding-bottom: 0.25rem; }
+    figure { margin: 1rem 0 2rem; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 1rem; }
+    figcaption { margin-top: 0.75rem; font-size: 0.95rem; color: #444; }
+    img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <h1>Experiment 2 — Data-driven mask visualizations</h1>
+  <p class="sub">531 samples · PC α=0.05 · age/sex exogenous · masks discovered on full data</p>
+
+  <section>
+    <h2>Final mask heatmaps (used in CV)</h2>
+    <figure>
+      <img src="mask_pc.png" alt="PC algorithm mask">
+      <figcaption><strong>PC algorithm</strong> — 15 free parameters</figcaption>
+    </figure>
+    <figure>
+      <img src="mask_stability.png" alt="Stability selection mask">
+      <figcaption><strong>PC stability selection</strong> — 12 free parameters (B=50, τ=0.6)</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Discovery → domain curation</h2>
+    <figure>
+      <img src="structure_pc_curation.png" alt="PC curation">
+      <figcaption><strong>PC:</strong> discovered structure vs after blocking incoming edges to age/sex (red dashed = removed)</figcaption>
+    </figure>
+    <figure>
+      <img src="structure_stability_curation.png" alt="Stability curation">
+      <figcaption><strong>Stability:</strong> 14 edges discovered → 12 after curation</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Final directed graphs</h2>
+    <figure>
+      <img src="structure_pc_graph.png" alt="PC graph">
+      <figcaption><strong>PC structure</strong> — 15 edges · gold = exogenous (age, sex)</figcaption>
+    </figure>
+    <figure>
+      <img src="structure_stability_graph.png" alt="Stability graph">
+      <figcaption><strong>Stability structure</strong> — 12 edges</figcaption>
+    </figure>
+  </section>
+</body>
+</html>
